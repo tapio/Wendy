@@ -222,6 +222,8 @@ GLuint createShader(GL::Context& context, GLenum type, const Shader& shader)
   }
 
   decl.append("#line 0 0\n");
+  decl.append(shader.defines);
+  decl.append("\n");
   decl.append(context.getSharedProgramStateDeclaration());
 
   String main;
@@ -311,10 +313,11 @@ const unsigned int PROGRAM_XML_VERSION = 4;
 
 ///////////////////////////////////////////////////////////////////////
 
-Shader::Shader(const char* initText, const Path& initPath, unsigned int initVersion):
+Shader::Shader(const char* initText, const Path& initPath, unsigned int initVersion, String initDefines):
   text(initText),
   path(initPath),
-  version(initVersion)
+  version(initVersion),
+  defines(initDefines)
 {
 }
 
@@ -1238,12 +1241,13 @@ ProgramReader::ProgramReader(Context& initContext):
 {
 }
 
-Ref<Program> ProgramReader::read(const Path& path)
+Ref<Program> ProgramReader::read(const Path& path, const String& initDefines)
 {
   if (Resource* cache = getIndex().findResource(path))
     return dynamic_cast<Program*>(cache);
 
   info.path = path;
+  defines = initDefines;
 
   std::ifstream stream;
   if (!getIndex().openFile(stream, info.path))
@@ -1252,11 +1256,13 @@ Ref<Program> ProgramReader::read(const Path& path)
   if (!XML::Reader::read(stream))
   {
     shaders.clear();
+    defines.clear();
     program = NULL;
     return NULL;
   }
 
   shaders.clear();
+  defines.clear();
 
   if (!program)
   {
@@ -1324,7 +1330,7 @@ bool ProgramReader::onBeginElement(const String& name)
 
     const unsigned int version = max(readInteger("glsl-version"), 100);
 
-    shaders[name] = Shader(text.c_str(), path, version);
+    shaders[name] = Shader(text.c_str(), path, version, defines);
     return true;
   }
 

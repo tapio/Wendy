@@ -56,10 +56,12 @@ class Shader
 public:
   Shader(const char* text = "",
          const Path& path = Path(),
-         unsigned int version = 120);
+         unsigned int version = 120,
+         String defines = "");
   String text;
   Path path;
   unsigned int version;
+  String defines;
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -373,7 +375,7 @@ class ProgramReader : public ResourceReader, public XML::Reader
 {
 public:
   ProgramReader(Context& context);
-  Ref<Program> read(const Path& path);
+  Ref<Program> read(const Path& path, const String& defines = "");
 private:
   bool onBeginElement(const String& name);
   bool onEndElement(const String& name);
@@ -381,6 +383,7 @@ private:
   Ref<Program> program;
   ResourceInfo info;
   std::map<String, Shader> shaders;
+  String defines;
 };
 
 ///////////////////////////////////////////////////////////////////////
