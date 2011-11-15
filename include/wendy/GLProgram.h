@@ -285,7 +285,7 @@ public:
                              const Shader& geometryShader,
                              const Shader& tessCtrlShader,
                              const Shader& tessEvalShader);
-  static Ref<Program> read(Context& context, const Path& path);
+  static Ref<Program> read(Context& context, const Path& path, const String& defines = "");
 private:
   Program(const ResourceInfo& info, Context& context);
   Program(const Program& source);

@@ -795,10 +795,10 @@ Ref<Program> Program::create(const ResourceInfo& info,
   return program;
 }
 
-Ref<Program> Program::read(Context& context, const Path& path)
+Ref<Program> Program::read(Context& context, const Path& path, const String& defines)
 {
   ProgramReader reader(context);
-  return reader.read(path);
+  return reader.read(path, defines);
 }
 
 Program::Program(const ResourceInfo& info, Context& initContext):
