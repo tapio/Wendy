@@ -54,7 +54,7 @@ Bimap<String, GL::BlendFactor> blendFactorMap;
 Bimap<String, GL::Function> functionMap;
 Bimap<String, Technique::Type> techniqueTypeMap;
 
-const unsigned int RENDER_MATERIAL_XML_VERSION = 6;
+const unsigned int RENDER_MATERIAL_XML_VERSION = 7;
 
 } /*namespace*/
 
