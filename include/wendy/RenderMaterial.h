@@ -180,11 +180,14 @@ public:
 private:
   bool onBeginElement(const String& name);
   bool onEndElement(const String& name);
+  bool readProgram();
   GL::Context& context;
   Ref<Material> material;
   ResourceInfo info;
   Technique* currentTechnique;
   Pass* currentPass;
+  Path programPath;
+  String programDefines;
 };
 
 ///////////////////////////////////////////////////////////////////////

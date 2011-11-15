@@ -248,6 +248,8 @@ Ref<Material> MaterialReader::read(const Path& path)
   info.path = path;
   currentTechnique = NULL;
   currentPass = NULL;
+  programPath = "";
+  programDefines = "";
 
   std::ifstream stream;
   if (!getIndex().openFile(stream, info.path))
@@ -408,119 +410,119 @@ bool MaterialReader::onBeginElement(const String& name)
 
         if (name == "program")
         {
-          Path programPath(readString("path"));
+          programPath = readString("path");
           if (programPath.isEmpty())
           {
             logError("Shader program path missing in material \'%s\'",
                      material->getPath().asString().c_str());
             return false;
           }
-
-          Ref<GL::Program> program = GL::Program::read(context, programPath);
-          if (!program)
-          {
-            logWarning("Failed to load shader program \'%s\'; skipping technique %u in material \'%s\'",
-                       programPath.asString().c_str(),
-                       material->getTechniques().size(),
-                       material->getPath().asString().c_str());
-
-            material->destroyTechnique(*currentTechnique);
-            currentTechnique = NULL;
-            return true;
-          }
-
-          currentPass->setProgram(program);
+          // We defer the program reading until it is required
+          // in order to allow #define-statements to be added.
           return true;
         }
 
-        if (GL::Program* program = currentPass->getProgram())
+        if (name == "define")
         {
-          if (name == "sampler")
+          programDefines += "#define " + readString("name") + " " + readString("value") + "\n";
+          return true;
+        }
+
+        if (name == "sampler")
+        {
+          String samplerName = readString("name");
+          if (samplerName.empty())
           {
-            String samplerName = readString("name");
-            if (samplerName.empty())
-            {
-              logWarning("Shader program \'%s\' lists unnamed sampler uniform",
-                         program->getPath().asString().c_str());
-              return true;
-            }
-
-            if (!program->findSampler(samplerName.c_str()))
-            {
-              logWarning("Shader program \'%s\' does not have sampler uniform \'%s\'",
-                         program->getPath().asString().c_str(),
-                         samplerName.c_str());
-              return true;
-            }
-
-            Path texturePath(readString("texture"));
-            if (texturePath.isEmpty())
-            {
-              logError("Texture path missing for sampler \'%s\'",
-                       samplerName.c_str());
-              return true;
-            }
-
-            Ref<GL::Texture> texture = GL::Texture::read(context, texturePath);
-            if (!texture)
-            {
-              logError("Failed to find texture \'%s\' for sampler \'%s\' of material \'%s\'",
-                       texturePath.asString().c_str(),
-                       samplerName.c_str(),
+            logWarning("Material \'%s\' lists unnamed sampler uniform",
                        material->getPath().asString().c_str());
-              return false;
-            }
-
-            currentPass->setSamplerState(samplerName.c_str(), texture);
             return true;
           }
 
-          if (name == "uniform")
+          if (!readProgram())
+            return false;
+
+          GL::Program* program = currentPass->getProgram();
+
+          if (!program->findSampler(samplerName.c_str()))
           {
-            String uniformName = readString("name");
-            if (uniformName.empty())
-            {
-              logWarning("Shader program \'%s\' lists unnamed uniform",
-                         program->getPath().asString().c_str());
-              return true;
-            }
-
-            GL::Uniform* uniform = program->findUniform(uniformName.c_str());
-            if (!uniform)
-            {
-              logWarning("Shader program \'%s\' does not have uniform \'%s\'",
-                         program->getPath().asString().c_str(),
-                         uniformName.c_str());
-              return true;
-            }
-
-            switch (uniform->getType())
-            {
-              case GL::Uniform::FLOAT:
-                currentPass->setUniformState(uniformName.c_str(), readFloat("value"));
-                break;
-              case GL::Uniform::VEC2:
-                currentPass->setUniformState(uniformName.c_str(), vec2Cast(readString("value")));
-                break;
-              case GL::Uniform::VEC3:
-                currentPass->setUniformState(uniformName.c_str(), vec3Cast(readString("value")));
-                break;
-              case GL::Uniform::VEC4:
-                currentPass->setUniformState(uniformName.c_str(), vec4Cast(readString("value")));
-                break;
-              case GL::Uniform::MAT2:
-                currentPass->setUniformState(uniformName.c_str(), mat2Cast(readString("value")));
-                break;
-              case GL::Uniform::MAT3:
-                currentPass->setUniformState(uniformName.c_str(), mat3Cast(readString("value")));
-                break;
-              case GL::Uniform::MAT4:
-                currentPass->setUniformState(uniformName.c_str(), mat4Cast(readString("value")));
-                break;
-            }
-
+            logWarning("Shader program \'%s\' does not have sampler uniform \'%s\'",
+                       program->getPath().asString().c_str(),
+                       samplerName.c_str());
             return true;
           }
+
+          Path texturePath(readString("texture"));
+          if (texturePath.isEmpty())
+          {
+            logError("Texture path missing for sampler \'%s\'",
+                     samplerName.c_str());
+            return true;
+          }
+
+          Ref<GL::Texture> texture = GL::Texture::read(context, texturePath);
+          if (!texture)
+          {
+            logError("Failed to find texture \'%s\' for sampler \'%s\' of material \'%s\'",
+                     texturePath.asString().c_str(),
+                     samplerName.c_str(),
+                     material->getPath().asString().c_str());
+            return false;
+          }
+
+          currentPass->setSamplerState(samplerName.c_str(), texture);
+          return true;
+        }
+
+        if (name == "uniform")
+        {
+          String uniformName = readString("name");
+          if (uniformName.empty())
+          {
+            logWarning("Material \'%s\' lists unnamed uniform",
+                       material->getPath().asString().c_str());
+            return true;
+          }
+
+          if (!readProgram())
+            return false;
+
+          GL::Program* program = currentPass->getProgram();
+
+          GL::Uniform* uniform = program->findUniform(uniformName.c_str());
+          if (!uniform)
+          {
+            logWarning("Shader program \'%s\' does not have uniform \'%s\'",
+                       program->getPath().asString().c_str(),
+                       uniformName.c_str());
+            return true;
+          }
+
+          switch (uniform->getType())
+          {
+          case GL::Uniform::FLOAT:
+            currentPass->setUniformState(uniformName.c_str(), readFloat("value"));
+            break;
+          case GL::Uniform::VEC2:
+            currentPass->setUniformState(uniformName.c_str(), vec2Cast(readString("value")));
+            break;
+          case GL::Uniform::VEC3:
+            currentPass->setUniformState(uniformName.c_str(), vec3Cast(readString("value")));
+            break;
+          case GL::Uniform::VEC4:
+            currentPass->setUniformState(uniformName.c_str(), vec4Cast(readString("value")));
+            break;
+          case GL::Uniform::MAT2:
+            currentPass->setUniformState(uniformName.c_str(), mat2Cast(readString("value")));
+            break;
+          case GL::Uniform::MAT3:
+            currentPass->setUniformState(uniformName.c_str(), mat3Cast(readString("value")));
+            break;
+          case GL::Uniform::MAT4:
+            currentPass->setUniformState(uniformName.c_str(), mat4Cast(readString("value")));
+            break;
+          }
+
+          return true;
         }
       }
     }
@@ -548,10 +550,40 @@ bool MaterialReader::onEndElement(const String& name)
           currentPass = NULL;
           return true;
         }
+        else if (name == "program")
+        {
+          bool res = readProgram();
+          programDefines.clear();
+          return res;
+        }
       }
     }
   }
 
+  return true;
+}
+
+bool MaterialReader::readProgram()
+{
+  if (programPath.isEmpty())
+    return true; // No pending program
+
+  Ref<GL::Program> program = GL::Program::read(context, programPath, programDefines);
+  if (!program)
+  {
+    logWarning("Failed to load shader program \'%s\'; skipping technique %u in material \'%s\'",
+               programPath.asString().c_str(),
+               material->getTechniques().size(),
+               material->getPath().asString().c_str());
+
+    material->destroyTechnique(*currentTechnique);
+    currentTechnique = NULL;
+    programPath = "";
+    return false;
+  }
+
+  currentPass->setProgram(program);
+  programPath = "";
   return true;
 }
 
