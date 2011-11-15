@@ -192,6 +192,41 @@ void Mesh::generateTriangleNormals()
   }
 }
 
+void Mesh::generateTangents()
+{
+  // TODO: Clear previous tangents
+
+  for (size_t i = 0;  i < geometries.size();  i++)
+  {
+    for (size_t j = 0;  j < geometries[i].triangles.size();  j++)
+    {
+      // Convenience variables
+      MeshTriangle& triangle = geometries[i].triangles[j];
+      vec3& p1 = vertices[triangle.indices[1]].position;
+      vec3& p2 = vertices[triangle.indices[2]].position;
+      const vec2& t0 = vertices[triangle.indices[0]].texcoord;
+      const vec2& t1 = vertices[triangle.indices[1]].texcoord;
+      const vec2& t2 = vertices[triangle.indices[2]].texcoord;
+
+      // Texture coord magic
+      vec2 uv1 = t1 - t0;
+      vec2 uv2 = t2 - t0;
+      float r = 1.0 / (uv1.x * uv2.y - uv2.x * uv1.y);
+
+      // Tangent components
+      float Tx = (uv2.y * p1.x - uv1.y * p2.x) * r;
+      float Ty = (uv2.y * p1.y - uv1.y * p2.y) * r;
+      float Tz = (uv2.y * p1.z - uv1.y * p2.z) * r;
+
+      // Apply results
+      triangle.tangent = vec3(Tx, Ty, Tz);
+      vertices[triangle.indices[0]].tangent += triangle.tangent;
+      vertices[triangle.indices[1]].tangent += triangle.tangent;
+      vertices[triangle.indices[2]].tangent += triangle.tangent;
+    }
+  }
+}
+
 void Mesh::generateEdges()
 {
   for (size_t i = 0;  i < geometries.size();  i++)
@@ -670,6 +705,9 @@ Ref<Mesh> MeshReader::read(const String& name, const Path& path)
   }
 
   merger.realizeVertices(mesh->vertices);
+
+  mesh->generateTangents();
+
   return mesh;
 }
 

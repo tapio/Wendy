@@ -46,6 +46,7 @@ public:
   vec3 position;
   vec3 normal;
   vec2 texcoord;
+  vec3 tangent;
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -67,6 +68,7 @@ public:
   unsigned int indices[3];
   unsigned int edges[3];
   vec3 normal;
+  vec3 tangent;
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -121,6 +123,9 @@ public:
   /*! Generates and stores triangle normals for this mesh.
    */
   void generateTriangleNormals();
+  /*! Generates and stores the tangents for this mesh.
+   */
+  void generateTangents();
   /*! Generates and stores the edges in this mesh. By default, the edge
    *  list is not created.
    */
