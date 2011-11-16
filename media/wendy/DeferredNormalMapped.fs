@@ -10,9 +10,9 @@ in vec3 gTangent;
 void main()
 {
   vec4 NS = texture2D(normalmap, gTexCoord);
-  vec3 N = NS.xyz;
+  vec3 N = normalize(NS.xyz);
 
   gl_FragData[0] = texture2D(colormap, gTexCoord);
-  gl_FragData[1] = vec4(normalize(gNormal) / 2.0 + 0.5, NS.a);
+  gl_FragData[1] = vec4(N, NS.a);
 }
 
