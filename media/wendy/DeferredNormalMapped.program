@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<program version="4" >
+  <vertex path="wendy/DeferredNormalMapped.vs" glsl-version="330" />
+  <geometry path="wendy/Tangents.gs" glsl-version="330" />
+  <fragment path="wendy/DeferredNormalMapped.fs" glsl-version="330" />
+</program>
