@@ -9,6 +9,20 @@ using namespace wendy;
 namespace
 {
 
+struct Entity {
+  btRigidBody* body;
+  scene::ModelNode* model;
+  void syncModelFromBody()
+  {
+    Transform3 trans = bullet::convert(body->getCenterOfMassTransform());
+    // HACK: Do a translation since the model is not centered to center of mass
+    vec3 normal(0.f, -1.f, 0.f);
+    trans.rotateVector(normal);
+    trans.position += normal * 3.5f;
+    model->setLocalTransform(trans);
+  }
+};
+
 class Demo : public Trackable, public input::Target
 {
 public:
@@ -33,6 +47,8 @@ private:
   ivec2 lastPosition;
   Ptr<btCollisionShape> sponzaShape;
   Ptr<btCollisionShape> cameraShape;
+  Ptr<btCollisionShape> vaseShape;
+  std::vector<Entity> entities;
   Ptr<btRigidBody> cameraBody;
   Ptr<btBroadphaseInterface> broadphase;
   Ptr<btCollisionDispatcher> dispatcher;
@@ -93,13 +109,13 @@ bool Demo::init()
   if (!renderer)
     return false;
 
-  Ref<render::Model> model = render::Model::read(*context, Path("sponza.model"));
-  if (!model)
+  Ref<render::Model> sponzaModel = render::Model::read(*context, Path("sponza.model"));
+  if (!sponzaModel)
     return false;
 
-  scene::ModelNode* modelNode = new scene::ModelNode();
-  modelNode->setModel(model);
-  graph.addRootNode(*modelNode);
+  scene::ModelNode* sponzaNode = new scene::ModelNode();
+  sponzaNode->setModel(sponzaModel);
+  graph.addRootNode(*sponzaNode);
 
   // Collision configuration contains default setup for memory, collision setup
   collisionConfiguration = new btDefaultCollisionConfiguration();
@@ -110,9 +126,9 @@ bool Demo::init()
   btSequentialImpulseConstraintSolver* sol = new btSequentialImpulseConstraintSolver;
   solver = sol;
   dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
-  dynamicsWorld->setGravity(btVector3(0,0,0));
+  dynamicsWorld->setGravity(btVector3(0,-10.f,0));
 
-  sponzaShape = new btBvhTriangleMeshShape(model->getCollisionMesh(), true);
+  sponzaShape = new btBvhTriangleMeshShape(sponzaModel->getCollisionMesh(), true);
   {
     btTransform transform;
     transform.setIdentity();
@@ -120,6 +136,36 @@ bool Demo::init()
     btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, NULL, sponzaShape);
     btRigidBody* body = new btRigidBody(rbInfo);
     dynamicsWorld->addRigidBody(body);
+  }
+
+  Ref<render::Model> model = render::Model::read(*context, Path("vase_round.model"));
+  if (!model)
+    return false;
+
+  //vaseShape = new btBvhTriangleMeshShape(model->getCollisionMesh(), true);
+  vaseShape = new btBoxShape(btVector3(2., 3.5, 2.));
+  btScalar vaseMass(100.f);
+  btVector3 vaseLocalInertia(0,0,0);
+  vaseShape->calculateLocalInertia(vaseMass, vaseLocalInertia);
+
+  for (int i = 0; i < 8; ++i)
+  {
+    Entity entity;
+    entity.model = new scene::ModelNode();
+    entity.model->setModel(model);
+    const float step = 15.f;
+    entity.model->setLocalPosition(vec3(-4*step + i*step, 4.f, 0.f));
+    graph.addRootNode(*entity.model);
+
+    btTransform transform;
+    transform.setIdentity();
+    transform.setOrigin(bullet::convert(entity.model->getLocalTransform().position));
+
+    btDefaultMotionState* motionState = new btDefaultMotionState(transform);
+    btRigidBody::btRigidBodyConstructionInfo rbInfo(vaseMass, motionState, vaseShape, vaseLocalInertia);
+    entity.body = new btRigidBody(rbInfo);
+    dynamicsWorld->addRigidBody(entity.body);
+    entities.push_back(entity);
   }
 
   cameraShape = new btSphereShape(btScalar(3.));
@@ -198,6 +244,9 @@ void Demo::run()
     dynamicsWorld->stepSimulation(deltaTime);
     // Set controller position according to simualtion results
     controller.setPosition(bullet::convert(cameraBody->getCenterOfMassPosition()));
+
+    for (size_t i = 0; i < entities.size(); ++i)
+      entities[i].syncModelFromBody();
 
     lightNode->setLocalPosition(vec3(0.f, sinf((float) currentTime) * 40.f + 45.f, 0.f));
     cameraNode->setLocalTransform(controller.getTransform());
