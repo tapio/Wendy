@@ -144,7 +144,7 @@ public:
   void generateBounds(Sphere& bounds) const;
   /*! Generates a collision mesh of this mesh.
    */
-  void generateCollisionMesh(CollisionMesh& mesh) const;
+  void generateCollisionMesh(CollisionMesh& cmesh) const;
   /*! @return @c true if this mesh is valid, otherwise @c false.
    */
   bool isValid() const;

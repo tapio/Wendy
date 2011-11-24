@@ -267,9 +267,23 @@ void Mesh::generateBounds(Sphere& bounds) const
     bounds.envelop(vertices[i].position);
 }
 
-void Mesh::generateCollisionMesh(CollisionMesh& mesh) const
+void Mesh::generateCollisionMesh(CollisionMesh& cmesh) const
 {
-  
+#ifdef WENDY_INCLUDE_BULLET
+  for (size_t i = 0;  i < geometries.size();  i++)
+  {
+    for (size_t j = 0;  j < geometries[i].triangles.size();  j++)
+    {
+      const MeshTriangle& triangle = geometries[i].triangles[j];
+      btVector3 v0 = bullet::convert(vertices[triangle.indices[0]].position);
+      btVector3 v1 = bullet::convert(vertices[triangle.indices[1]].position);
+      btVector3 v2 = bullet::convert(vertices[triangle.indices[2]].position);
+      cmesh.addTriangle(v0, v1, v2);
+    }
+  }
+#else /*WENDY_INCLUDE_BULLET*/
+  panic("Collision mesh requires Bullet.");
+#endif /*WENDY_INCLUDE_BULLET*/
 }
 
 bool Mesh::isValid() const
