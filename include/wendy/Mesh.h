@@ -28,13 +28,6 @@
 
 #include <vector>
 
-#ifdef WENDY_INCLUDE_BULLET
-  #include <wendy/Bullet.h>
-  typedef btTriangleMesh CollisionMesh;
-#else
-  typedef void CollisionMesh;
-#endif /*WENDY_INCLUDE_BULLET*/
-
 ///////////////////////////////////////////////////////////////////////
 
 namespace wendy
@@ -142,9 +135,6 @@ public:
   /*! Generates the bounding sphere of this mesh.
    */
   void generateBounds(Sphere& bounds) const;
-  /*! Generates a collision mesh of this mesh.
-   */
-  void generateCollisionMesh(CollisionMesh& cmesh) const;
   /*! @return @c true if this mesh is valid, otherwise @c false.
    */
   bool isValid() const;

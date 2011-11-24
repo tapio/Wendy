@@ -38,6 +38,8 @@
 
 namespace wendy
 {
+  class Mesh;
+
   namespace bullet
   {
 
@@ -67,6 +69,10 @@ vec3 convert(const btVector3& vector);
 /*! @ingroup bullet
  */
 btVector3 convert(const vec3& vector);
+
+/*! @ingroup bullet
+ */
+btTriangleMesh* convert(const Mesh& mesh);
 
 ///////////////////////////////////////////////////////////////////////
 

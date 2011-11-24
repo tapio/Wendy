@@ -73,9 +73,6 @@ public:
   /*! @return The index buffer used by this model.
    */
   const GL::IndexBuffer& getIndexBuffer() const;
-  /*! @return The collision mesh.
-   */
-  CollisionMesh* getCollisionMesh();
   /*! Creates a model from the specified mesh data.
    *  @param[in] info The resource info for the texture.
    *  @param[in] context The OpenGL context within which to create the texture.
@@ -103,7 +100,6 @@ private:
   Ref<GL::VertexBuffer> vertexBuffer;
   Ref<GL::IndexBuffer> indexBuffer;
   Sphere bounds;
-  Ptr<CollisionMesh> collisionMesh;
 };
 
 ///////////////////////////////////////////////////////////////////////

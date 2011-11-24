@@ -26,6 +26,7 @@
 #include <wendy/Config.h>
 
 #include <wendy/Bullet.h>
+#include <wendy/Mesh.h>
 
 #include <btBulletWorldImporter.h>
 
@@ -74,6 +75,23 @@ vec3 convert(const btVector3& vector)
 btVector3 convert(const vec3& vector)
 {
   return btVector3(vector.x, vector.y, vector.z);
+}
+
+btTriangleMesh* convert(const Mesh& mesh)
+{
+  btTriangleMesh* cmesh = new btTriangleMesh(true, false);
+  for (size_t i = 0;  i < mesh.geometries.size();  i++)
+  {
+    for (size_t j = 0;  j < mesh.geometries[i].triangles.size();  j++)
+    {
+      const MeshTriangle& triangle = mesh.geometries[i].triangles[j];
+      btVector3 v0 = bullet::convert(mesh.vertices[triangle.indices[0]].position);
+      btVector3 v1 = bullet::convert(mesh.vertices[triangle.indices[1]].position);
+      btVector3 v2 = bullet::convert(mesh.vertices[triangle.indices[2]].position);
+      cmesh->addTriangle(v0, v1, v2);
+    }
+  }
+  return cmesh;
 }
 
 ///////////////////////////////////////////////////////////////////////

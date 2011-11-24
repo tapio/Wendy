@@ -128,7 +128,9 @@ bool Demo::init()
   dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
   dynamicsWorld->setGravity(btVector3(0,-10.f,0));
 
-  sponzaShape = new btBvhTriangleMeshShape(sponzaModel->getCollisionMesh(), true);
+  MeshReader reader(cache);
+  Ref<Mesh> sponzaObj = reader.read(Path("sponza.obj"));
+  sponzaShape = new btBvhTriangleMeshShape(bullet::convert(*sponzaObj), true);
   {
     btTransform transform;
     transform.setIdentity();
