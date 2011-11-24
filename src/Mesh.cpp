@@ -267,6 +267,11 @@ void Mesh::generateBounds(Sphere& bounds) const
     bounds.envelop(vertices[i].position);
 }
 
+void Mesh::generateCollisionMesh(CollisionMesh& mesh) const
+{
+  
+}
+
 bool Mesh::isValid() const
 {
   if (vertices.empty())

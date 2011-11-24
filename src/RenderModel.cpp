@@ -100,6 +100,11 @@ const GL::IndexBuffer& Model::getIndexBuffer() const
   return *indexBuffer;
 }
 
+const CollisionMesh* Model::getCollisionMesh() const
+{
+  return &(*collisionMesh);
+}
+
 Ref<Model> Model::create(const ResourceInfo& info,
                          GL::Context& context,
                          const Mesh& data,
@@ -263,6 +268,12 @@ bool Model::init(const Mesh& data, const MaterialMap& materials)
   }
 
   data.generateBounds(bounds);
+
+#ifdef WENDY_INCLUDE_BULLET
+  collisionMesh = new CollisionMesh(true, false);
+  data.generateCollisionMesh(*collisionMesh);
+#endif /*WENDY_INCLUDE_BULLET*/
+
   return true;
 }
 
