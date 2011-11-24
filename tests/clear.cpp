@@ -5,17 +5,29 @@
 
 using namespace wendy;
 
+namespace
+{
+
+void onContextResized(unsigned int width, unsigned int height)
+{
+  GL::Context* context = GL::Context::getSingleton();
+  context->setViewportArea(Recti(0, 0, width, height));
+}
+
+} /*namespace*/
+
 int main()
 {
-  ResourceIndex index;
+  ResourceCache cache;
 
-  if (!GL::Context::createSingleton(index, GL::WindowConfig("Clear screen")))
+  if (!GL::Context::createSingleton(cache, GL::WindowConfig("Clear screen")))
   {
     logError("Failed to create OpenGL context");
     std::exit(EXIT_FAILURE);
   }
 
   GL::Context* context = GL::Context::getSingleton();
+  context->getResizedSignal().connect(onContextResized);
 
   do
   {

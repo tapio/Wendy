@@ -4,8 +4,8 @@ Copyright (c) 2003-2009 Erwin Coumans  http://bulletphysics.org
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the use of this software.
-Permission is granted to anyone to use this software for any purpose, 
-including commercial applications, and to alter it and redistribute it freely, 
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
 subject to the following restrictions:
 
 1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
@@ -21,11 +21,11 @@ m_uniformScalingFactor(uniformScalingFactor)
 {
 	m_shapeType = UNIFORM_SCALING_SHAPE_PROXYTYPE;
 }
-	
+
 btUniformScalingShape::~btUniformScalingShape()
 {
 }
-	
+
 
 btVector3	btUniformScalingShape::localGetSupportingVertexWithoutMargin(const btVector3& vec)const
 {
@@ -64,28 +64,73 @@ void	btUniformScalingShape::calculateLocalInertia(btScalar mass,btVector3& inert
 
 
 	///getAabb's default implementation is brute force, expected derived classes to implement a fast dedicated version
-void btUniformScalingShape::getAabb(const btTransform& t,btVector3& aabbMin,btVector3& aabbMax) const
+void btUniformScalingShape::getAabb(const btTransform& trans,btVector3& aabbMin,btVector3& aabbMax) const
 {
-	m_childConvexShape->getAabb(t,aabbMin,aabbMax);
-	btVector3 aabbCenter = (aabbMax+aabbMin)*btScalar(0.5);
-	btVector3 scaledAabbHalfExtends = (aabbMax-aabbMin)*btScalar(0.5)*m_uniformScalingFactor;
-
-	aabbMin = aabbCenter - scaledAabbHalfExtends;
-	aabbMax = aabbCenter + scaledAabbHalfExtends;
+	getAabbSlow(trans,aabbMin,aabbMax);
 
 }
 
 void btUniformScalingShape::getAabbSlow(const btTransform& t,btVector3& aabbMin,btVector3& aabbMax) const
 {
-	m_childConvexShape->getAabbSlow(t,aabbMin,aabbMax);
-	btVector3 aabbCenter = (aabbMax+aabbMin)*btScalar(0.5);
-	btVector3 scaledAabbHalfExtends = (aabbMax-aabbMin)*btScalar(0.5)*m_uniformScalingFactor;
+#if 1
+	btVector3 _directions[] =
+	{
+		btVector3( 1.,  0.,  0.),
+		btVector3( 0.,  1.,  0.),
+		btVector3( 0.,  0.,  1.),
+		btVector3( -1., 0.,  0.),
+		btVector3( 0., -1.,  0.),
+		btVector3( 0.,  0., -1.)
+	};
 
-	aabbMin = aabbCenter - scaledAabbHalfExtends;
-	aabbMax = aabbCenter + scaledAabbHalfExtends;
+	btVector3 _supporting[] =
+	{
+		btVector3( 0., 0., 0.),
+		btVector3( 0., 0., 0.),
+		btVector3( 0., 0., 0.),
+		btVector3( 0., 0., 0.),
+		btVector3( 0., 0., 0.),
+		btVector3( 0., 0., 0.)
+	};
+
+	for (int i=0;i<6;i++)
+	{
+		_directions[i] = _directions[i]*t.getBasis();
+	}
+
+	batchedUnitVectorGetSupportingVertexWithoutMargin(_directions, _supporting, 6);
+
+	btVector3 aabbMin1(0,0,0),aabbMax1(0,0,0);
+
+	for ( int i = 0; i < 3; ++i )
+	{
+		aabbMax1[i] = t(_supporting[i])[i];
+		aabbMin1[i] = t(_supporting[i + 3])[i];
+	}
+	btVector3 marginVec(getMargin(),getMargin(),getMargin());
+	aabbMin = aabbMin1-marginVec;
+	aabbMax = aabbMax1+marginVec;
+
+#else
+
+	btScalar margin = getMargin();
+	for (int i=0;i<3;i++)
+	{
+		btVector3 vec(btScalar(0.),btScalar(0.),btScalar(0.));
+		vec[i] = btScalar(1.);
+		btVector3 sv = localGetSupportingVertex(vec*t.getBasis());
+		btVector3 tmp = t(sv);
+		aabbMax[i] = tmp[i]+margin;
+		vec[i] = btScalar(-1.);
+		sv = localGetSupportingVertex(vec*t.getBasis());
+		tmp = t(sv);
+		aabbMin[i] = tmp[i]-margin;
+	}
+
+#endif
 }
 
-void	btUniformScalingShape::setLocalScaling(const btVector3& scaling) 
+void	btUniformScalingShape::setLocalScaling(const btVector3& scaling)
 {
 	m_childConvexShape->setLocalScaling(scaling);
 }
@@ -108,7 +153,7 @@ int		btUniformScalingShape::getNumPreferredPenetrationDirections() const
 {
 	return m_childConvexShape->getNumPreferredPenetrationDirections();
 }
-	
+
 void	btUniformScalingShape::getPreferredPenetrationDirection(int index, btVector3& penetrationVector) const
 {
 	m_childConvexShape->getPreferredPenetrationDirection(index,penetrationVector);

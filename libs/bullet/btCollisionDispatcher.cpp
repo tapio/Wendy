@@ -4,8 +4,8 @@ Copyright (c) 2003-2006 Erwin Coumans  http://continuousphysics.com/Bullet/
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the use of this software.
-Permission is granted to anyone to use this software for any purpose, 
-including commercial applications, and to alter it and redistribute it freely, 
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
 subject to the following restrictions:
 
 1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
@@ -33,14 +33,14 @@ int gNumManifold = 0;
 #endif
 
 
-btCollisionDispatcher::btCollisionDispatcher (btCollisionConfiguration* collisionConfiguration): 
+btCollisionDispatcher::btCollisionDispatcher (btCollisionConfiguration* collisionConfiguration):
 m_dispatcherFlags(btCollisionDispatcher::CD_USE_RELATIVE_CONTACT_BREAKING_THRESHOLD),
 	m_collisionConfiguration(collisionConfiguration)
 {
 	int i;
 
 	setNearCallback(defaultNearCallback);
-	
+
 	m_collisionAlgorithmPoolAllocator = collisionConfiguration->getCollisionAlgorithmPool();
 
 	m_persistentManifoldPoolAllocator = collisionConfiguration->getPersistentManifoldPool();
@@ -53,8 +53,8 @@ m_dispatcherFlags(btCollisionDispatcher::CD_USE_RELATIVE_CONTACT_BREAKING_THRESH
 			btAssert(m_doubleDispatch[i][j]);
 		}
 	}
-	
-	
+
+
 }
 
 
@@ -67,33 +67,41 @@ btCollisionDispatcher::~btCollisionDispatcher()
 {
 }
 
-btPersistentManifold*	btCollisionDispatcher::getNewManifold(void* b0,void* b1) 
-{ 
+btPersistentManifold*	btCollisionDispatcher::getNewManifold(void* b0,void* b1)
+{
 	gNumManifold++;
-	
+
 	//btAssert(gNumManifold < 65535);
-	
+
 
 	btCollisionObject* body0 = (btCollisionObject*)b0;
 	btCollisionObject* body1 = (btCollisionObject*)b1;
 
 	//optional relative contact breaking threshold, turned on by default (use setDispatcherFlags to switch off feature for improved performance)
-	
-	btScalar contactBreakingThreshold =  (m_dispatcherFlags & btCollisionDispatcher::CD_USE_RELATIVE_CONTACT_BREAKING_THRESHOLD) ? 
+
+	btScalar contactBreakingThreshold =  (m_dispatcherFlags & btCollisionDispatcher::CD_USE_RELATIVE_CONTACT_BREAKING_THRESHOLD) ?
 		btMin(body0->getCollisionShape()->getContactBreakingThreshold(gContactBreakingThreshold) , body1->getCollisionShape()->getContactBreakingThreshold(gContactBreakingThreshold))
 		: gContactBreakingThreshold ;
 
 	btScalar contactProcessingThreshold = btMin(body0->getContactProcessingThreshold(),body1->getContactProcessingThreshold());
-		
+
 	void* mem = 0;
-	
+
 	if (m_persistentManifoldPoolAllocator->getFreeCount())
 	{
 		mem = m_persistentManifoldPoolAllocator->allocate(sizeof(btPersistentManifold));
 	} else
 	{
-		mem = btAlignedAlloc(sizeof(btPersistentManifold),16);
-
+		//we got a pool memory overflow, by default we fallback to dynamically allocate memory. If we require a contiguous contact pool then assert.
+		if ((m_dispatcherFlags&CD_DISABLE_CONTACTPOOL_DYNAMIC_ALLOCATION)==0)
+		{
+			mem = btAlignedAlloc(sizeof(btPersistentManifold),16);
+		} else
+		{
+			btAssert(0);
+			//make sure to increase the m_defaultMaxPersistentManifoldPoolSize in the btDefaultCollisionConstructionInfo/btDefaultCollisionConfiguration
+			return 0;
+		}
 	}
 	btPersistentManifold* manifold = new(mem) btPersistentManifold (body0,body1,0,contactBreakingThreshold,contactProcessingThreshold);
 	manifold->m_index1a = m_manifoldsPtr.size();
@@ -107,10 +115,10 @@ void btCollisionDispatcher::clearManifold(btPersistentManifold* manifold)
 	manifold->clearManifold();
 }
 
-	
+
 void btCollisionDispatcher::releaseManifold(btPersistentManifold* manifold)
 {
-	
+
 	gNumManifold--;
 
 	//printf("releaseManifold: gNumManifold %d\n",gNumManifold);
@@ -130,14 +138,14 @@ void btCollisionDispatcher::releaseManifold(btPersistentManifold* manifold)
 	{
 		btAlignedFree(manifold);
 	}
-	
+
 }
 
-	
+
 
 btCollisionAlgorithm* btCollisionDispatcher::findAlgorithm(btCollisionObject* body0,btCollisionObject* body1,btPersistentManifold* sharedManifold)
 {
-	
+
 	btCollisionAlgorithmConstructionInfo ci;
 
 	ci.m_dispatcher1 = this;
@@ -153,7 +161,7 @@ btCollisionAlgorithm* btCollisionDispatcher::findAlgorithm(btCollisionObject* bo
 bool	btCollisionDispatcher::needsResponse(btCollisionObject* body0,btCollisionObject* body1)
 {
 	//here you can do filtering
-	bool hasResponse = 
+	bool hasResponse =
 		(body0->hasContactResponse() && body1->hasContactResponse());
 	//no response between two static/kinematic bodies:
 	hasResponse = hasResponse &&
@@ -172,8 +180,7 @@ bool	btCollisionDispatcher::needsCollision(btCollisionObject* body0,btCollisionO
 	if (!(m_dispatcherFlags & btCollisionDispatcher::CD_STATIC_STATIC_REPORTED))
 	{
 		//broadphase filtering already deals with this
-		if ((body0->isStaticObject() || body0->isKinematicObject()) &&
-			(body1->isStaticObject() || body1->isKinematicObject()))
+		if (body0->isStaticOrKinematicObject() && body1->isStaticOrKinematicObject())
 		{
 			m_dispatcherFlags |= btCollisionDispatcher::CD_STATIC_STATIC_REPORTED;
 			printf("warning btCollisionDispatcher::needsCollision: static-static collision!\n");
@@ -185,7 +192,7 @@ bool	btCollisionDispatcher::needsCollision(btCollisionObject* body0,btCollisionO
 		needsCollision = false;
 	else if (!body0->checkCollideWith(body1))
 		needsCollision = false;
-	
+
 	return needsCollision ;
 
 }
@@ -229,7 +236,7 @@ public:
 
 
 
-void	btCollisionDispatcher::dispatchAllCollisionPairs(btOverlappingPairCache* pairCache,const btDispatcherInfo& dispatchInfo,btDispatcher* dispatcher) 
+void	btCollisionDispatcher::dispatchAllCollisionPairs(btOverlappingPairCache* pairCache,const btDispatcherInfo& dispatchInfo,btDispatcher* dispatcher)
 {
 	//m_blockedForChanges = true;
 
@@ -261,7 +268,7 @@ void btCollisionDispatcher::defaultNearCallback(btBroadphasePair& collisionPair,
 			if (collisionPair.m_algorithm)
 			{
 				btManifoldResult contactPointResult(colObj0,colObj1);
-				
+
 				if (dispatchInfo.m_dispatchFunc == 		btDispatcherInfo::DISPATCH_DISCRETE)
 				{
 					//discrete collision detection query
@@ -286,7 +293,7 @@ void* btCollisionDispatcher::allocateCollisionAlgorithm(int size)
 	{
 		return m_collisionAlgorithmPoolAllocator->allocate(size);
 	}
-	
+
 	//warn user for overflow?
 	return	btAlignedAlloc(static_cast<size_t>(size), 16);
 }

@@ -2,8 +2,12 @@
 #include <wendy/Wendy.h>
 
 #include <cstdlib>
+#include <sstream>
 
 using namespace wendy;
+
+namespace
+{
 
 class Demo : public Trackable, public input::Target
 {
@@ -16,7 +20,7 @@ private:
   void onKeyPressed(input::Key key, bool pressed);
   void onButtonClicked(input::Button button, bool clicked);
   void onCursorMoved(const ivec2& position);
-  ResourceIndex index;
+  ResourceCache cache;
   input::SpectatorController controller;
   Ptr<render::GeometryPool> pool;
   Ref<render::Camera> camera;
@@ -55,13 +59,16 @@ bool Demo::init()
   if (!mediaPath)
     mediaPath = WENDY_MEDIA_DIR;
 
-  if (!index.addSearchPath(Path(mediaPath)))
+  if (!cache.addSearchPath(Path(mediaPath)))
     return false;
 
-  if (!index.addSearchPath(Path(mediaPath) + "sponza"))
+  if (!cache.addSearchPath(Path(mediaPath) + "sponza"))
     return false;
 
-  if (!GL::Context::createSingleton(index, GL::WindowConfig("Sponza Atrium")))
+  GL::WindowConfig wc;
+  wc.resizable = false;
+
+  if (!GL::Context::createSingleton(cache, wc))
     return false;
 
   GL::Context* context = GL::Context::getSingleton();
@@ -115,6 +122,9 @@ bool Demo::init()
     lastPosition =  context->getCursorPosition();
   }
 
+  controller.setSpeed(25.f);
+  controller.setPosition(vec3(0.f, 10.f, 0.f));
+
   return true;
 }
 
@@ -124,6 +134,8 @@ void Demo::run()
   scene.setAmbientIntensity(vec3(0.2f, 0.2f, 0.2f));
 
   GL::Context& context = pool->getContext();
+  GL::Stats stats;
+  context.setStats(&stats);
 
   do
   {
@@ -145,6 +157,10 @@ void Demo::run()
 
     scene.removeOperations();
     scene.detachLights();
+
+    std::ostringstream oss;
+    oss << "Sponza Atrium - FPS: " << stats.getFrameRate();
+    context.setTitle(oss.str().c_str());
   }
   while (!quitting && context.update());
 }
@@ -183,12 +199,18 @@ void Demo::onCursorMoved(const ivec2& position)
   lastPosition = position;
 }
 
+} /*namespace*/
+
 int main()
 {
   Ptr<Demo> demo(new Demo());
-  if (demo->init())
-    demo->run();
+  if (!demo->init())
+  {
+    logError("Failed to initialize demo");
+    std::exit(EXIT_FAILURE);
+  }
 
+  demo->run();
   demo = NULL;
 
   std::exit(EXIT_SUCCESS);

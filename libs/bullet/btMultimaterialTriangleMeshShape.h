@@ -4,8 +4,8 @@ Copyright (c) 2003-2009 Erwin Coumans  http://bulletphysics.org
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the use of this software.
-Permission is granted to anyone to use this software for any purpose, 
-including commercial applications, and to alter it and redistribute it freely, 
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
 subject to the following restrictions:
 
 1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
@@ -15,8 +15,8 @@ subject to the following restrictions:
 
 /// This file was created by Alex Silverman
 
-#ifndef BVH_TRIANGLE_MATERIAL_MESH_SHAPE_H
-#define BVH_TRIANGLE_MATERIAL_MESH_SHAPE_H
+#ifndef BT_BVH_TRIANGLE_MATERIAL_MESH_SHAPE_H
+#define BT_BVH_TRIANGLE_MATERIAL_MESH_SHAPE_H
 
 #include "btBvhTriangleMeshShape.h"
 #include "btMaterial.h"
@@ -31,7 +31,6 @@ public:
 
 	BT_DECLARE_ALIGNED_ALLOCATOR();
 
-    btMultimaterialTriangleMeshShape(): btBvhTriangleMeshShape() {m_shapeType = MULTIMATERIAL_TRIANGLE_MESH_PROXYTYPE;}
     btMultimaterialTriangleMeshShape(btStridingMeshInterface* meshInterface, bool useQuantizedAabbCompression, bool buildBvh = true):
         btBvhTriangleMeshShape(meshInterface, useQuantizedAabbCompression, buildBvh)
         {
@@ -96,7 +95,7 @@ public:
                 //m_materialLookup[i] = (int*)(btAlignedAlloc(sizeof(int) * numfaces * 2, 16));
             }
         }
-	
+
     virtual ~btMultimaterialTriangleMeshShape()
     {
 /*
@@ -118,4 +117,4 @@ public:
 }
 ;
 
-#endif //BVH_TRIANGLE_MATERIAL_MESH_SHAPE_H
+#endif //BT_BVH_TRIANGLE_MATERIAL_MESH_SHAPE_H

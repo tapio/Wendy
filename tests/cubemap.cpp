@@ -18,7 +18,8 @@ public:
   bool init();
   void run();
 private:
-  ResourceIndex index;
+  void onContextResized(unsigned int width, unsigned int height);
+  ResourceCache cache;
   input::MayaCamera controller;
   Ptr<render::GeometryPool> pool;
   Ref<render::Camera> camera;
@@ -43,13 +44,14 @@ bool Test::init()
   if (!mediaPath)
     mediaPath = WENDY_MEDIA_DIR;
 
-  if (!index.addSearchPath(Path(mediaPath)))
+  if (!cache.addSearchPath(Path(mediaPath)))
     return false;
 
-  if (!GL::Context::createSingleton(index, GL::WindowConfig("Cube Mapping Test")))
+  if (!GL::Context::createSingleton(cache, GL::WindowConfig("Cube Mapping Test")))
     return false;
 
   GL::Context* context = GL::Context::getSingleton();
+  context->getResizedSignal().connect(*this, &Test::onContextResized);
 
   if (!input::Context::createSingleton(*context))
     return false;
@@ -87,8 +89,11 @@ bool Test::init()
     graph.addRootNode(*modelNode);
   }
 
+  GL::Framebuffer& framebuffer = context->getCurrentFramebuffer();
+
   camera = new render::Camera();
   camera->setFOV(60.f);
+  camera->setAspectRatio((float) framebuffer.getWidth() / framebuffer.getHeight());
 
   cameraNode = new scene::CameraNode();
   cameraNode->setCamera(camera);
@@ -118,6 +123,14 @@ void Test::run()
     scene.detachLights();
   }
   while (context.update());
+}
+
+void Test::onContextResized(unsigned int width, unsigned int height)
+{
+  GL::Context* context = GL::Context::getSingleton();
+  context->setViewportArea(Recti(0, 0, width, height));
+
+  camera->setAspectRatio(float(width) / float(height));
 }
 
 } /*namespace*/

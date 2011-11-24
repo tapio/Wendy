@@ -1,9 +1,8 @@
-// Shaders for this test adapted from http://prideout.net/blog/?p=48
-// Their original license: public domain
 
 #include <wendy/Wendy.h>
 
 #include <cstdlib>
+#include <sstream>
 
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/constants.hpp>
@@ -20,7 +19,8 @@ public:
   bool init();
   void run();
 private:
-  ResourceIndex index;
+  void onContextResized(unsigned int width, unsigned int height);
+  ResourceCache cache;
   input::MayaCamera controller;
   Ptr<render::GeometryPool> pool;
   Ref<render::Camera> camera;
@@ -45,16 +45,17 @@ bool Test::init()
   if (!mediaPath)
     mediaPath = WENDY_MEDIA_DIR;
 
-  if (!index.addSearchPath(Path(mediaPath)))
+  if (!cache.addSearchPath(Path(mediaPath)))
     return false;
 
   GL::ContextConfig cc;
   cc.version = GL::Version(4,1);
 
-  if (!GL::Context::createSingleton(index, GL::WindowConfig("OpenGL 4 Hardware Tessellation"), cc))
+  if (!GL::Context::createSingleton(cache, GL::WindowConfig(), cc))
     return false;
 
   GL::Context* context = GL::Context::getSingleton();
+  context->getResizedSignal().connect(*this, &Test::onContextResized);
 
   if (!input::Context::createSingleton(*context))
     return false;
@@ -92,8 +93,11 @@ bool Test::init()
     graph.addRootNode(*modelNode);
   }
 
+  GL::Framebuffer& framebuffer = context->getCurrentFramebuffer();
+
   camera = new render::Camera();
   camera->setFOV(60.f);
+  camera->setAspectRatio((float) framebuffer.getWidth() / framebuffer.getHeight());
 
   cameraNode = new scene::CameraNode();
   cameraNode->setCamera(camera);
@@ -107,6 +111,8 @@ void Test::run()
 {
   render::Scene scene(*pool, render::Technique::FORWARD);
   GL::Context& context = pool->getContext();
+  GL::Stats stats;
+  context.setStats(&stats);
 
   do
   {
@@ -121,8 +127,20 @@ void Test::run()
 
     scene.removeOperations();
     scene.detachLights();
+
+    std::ostringstream oss;
+    oss << "OpenGL 4 Hardware Tessellation - FPS: " << stats.getFrameRate();
+    context.setTitle(oss.str().c_str());
   }
   while (context.update());
+}
+
+void Test::onContextResized(unsigned int width, unsigned int height)
+{
+  GL::Context* context = GL::Context::getSingleton();
+  context->setViewportArea(Recti(0, 0, width, height));
+
+  camera->setAspectRatio(float(width) / float(height));
 }
 
 } /*namespace*/

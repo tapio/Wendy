@@ -38,7 +38,6 @@ operating systems, and for which there are Windows binaries on their site:
 Wendy comes with internal versions of the following libraries:
 
   Bullet (http://bulletphysics.org/) for dynamics and collision
-  expat (http://expat.sourceforge.net/) for reading XML files
   GLEW (http://glew.sourceforge.net/) for managing OpenGL extensions
   GLFW (http://www.glfw.org/) for OpenGL context, input and window
   GLM (http://glm.g-truc.net/) for vector math and explicitly sized types
@@ -46,6 +45,7 @@ Wendy comes with internal versions of the following libraries:
   libpng (http://www.libpng.org/) for reading and writing PNG files
   libvorbis (http://xiph.org/vorbis/) for decoding Vorbis audio data
   PCRE (http://www.pcre.org/) for regular expression support
+  pugixml (http://pugixml.org/) for reading and writing XML files
   Squirrel (http://squirrel-lang.org/) for embedded scripting
   zlib (http://zlib.net/) for compressed data streams
 
@@ -57,7 +57,6 @@ packages provide the necessary support:
   xorg-dev
   libopenal-dev
   libgl1-mesa-dev
-  libglu1-mesa-dev
 
 On other Linux systems and other Unix-like systems, there will most likely be
 similarly named packages available.
@@ -82,7 +81,7 @@ The renderers require OpenGL 2.1 and the following OpenGL extensions:
 Additionally, the following OpenGL extensions are used where available:
 
   GL_ARB_texture_float
-  GL_ARB_half_float_pixel                                      
+  GL_ARB_half_float_pixel
   GL_ARB_debug_output
   GL_EXT_framebuffer_sRGB
   GL_ARB_geometry_shader4

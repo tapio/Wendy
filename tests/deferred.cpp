@@ -8,6 +8,9 @@
 
 using namespace wendy;
 
+namespace
+{
+
 class Test : public Trackable
 {
 public:
@@ -16,7 +19,7 @@ public:
   void run();
 private:
   bool render();
-  ResourceIndex index;
+  ResourceCache cache;
   input::MayaCamera controller;
   Ptr<render::GeometryPool> pool;
   Ptr<deferred::Renderer> renderer;
@@ -46,10 +49,13 @@ bool Test::init()
   if (!mediaPath)
     mediaPath = WENDY_MEDIA_DIR;
 
-  if (!index.addSearchPath(Path(mediaPath)))
+  if (!cache.addSearchPath(Path(mediaPath)))
     return false;
 
-  if (!GL::Context::createSingleton(index, GL::WindowConfig("Deferred Rendering Test")))
+  GL::WindowConfig wc("Deferred Rendering Test");
+  wc.resizable = false;
+
+  if (!GL::Context::createSingleton(cache, wc))
     return false;
 
   GL::Context* context = GL::Context::getSingleton();
@@ -93,7 +99,7 @@ bool Test::init()
   camera->setNearZ(0.5f);
   camera->setFarZ(500.f);
   camera->setFOV(60.f);
-  camera->setAspectRatio((float) width / height);
+  camera->setAspectRatio(float(width) / float(height));
 
   cameraNode = new scene::CameraNode();
   cameraNode->setCamera(camera);
@@ -154,6 +160,8 @@ void Test::run()
   }
   while (context.update());
 }
+
+} /*namespace*/
 
 int main()
 {

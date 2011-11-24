@@ -1,3 +1,19 @@
+/*
+Bullet Continuous Collision Detection and Physics Library
+Copyright (c) 2003-2009 Erwin Coumans  http://bulletphysics.org
+
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the use of this software.
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
+subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
+*/
+
+
 #ifndef BT_HASH_MAP_H
 #define BT_HASH_MAP_H
 
@@ -23,7 +39,7 @@ struct btHashString
 
 		/* Fowler / Noll / Vo (FNV) Hash */
 		unsigned int hash = InitialFNV;
-		
+
 		for(int i = 0; m_string[i]; i++)
 		{
 			hash = hash ^ (m_string[i]);       /* xor  the low 8 bits */
@@ -123,15 +139,15 @@ public:
 	SIMD_FORCE_INLINE	unsigned int getHash()const
 	{
 		const bool VOID_IS_8 = ((sizeof(void*)==8));
-		
+
 		int key = VOID_IS_8? m_hashValues[0]+m_hashValues[1] : m_hashValues[0];
-	
+
 		// Thomas Wang's hash
 		key += ~(key << 15);	key ^=  (key >> 10);	key +=  (key << 3);	key ^=  (key >> 6);	key += ~(key << 11);	key ^=  (key >> 16);
 		return key;
 	}
 
-	
+
 };
 
 
@@ -164,7 +180,7 @@ public:
                 return key;
         }
 
-        
+
 };
 
 
@@ -207,7 +223,7 @@ class btHashMap
 protected:
 	btAlignedObjectArray<int>		m_hashTable;
 	btAlignedObjectArray<int>		m_next;
-	
+
 	btAlignedObjectArray<Value>		m_valueArray;
 	btAlignedObjectArray<Key>		m_keyArray;
 
@@ -282,7 +298,7 @@ protected:
 		int hash = key.getHash() & (m_valueArray.capacity()-1);
 
 		int pairIndex = findIndex(key);
-		
+
 		if (pairIndex ==BT_HASH_NULL)
 		{
 			return;

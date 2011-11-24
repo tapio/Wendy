@@ -36,6 +36,7 @@
 
 #include <internal/GLConvert.h>
 
+#define GLFW_NO_GLU
 #include <GL/glfw.h>
 
 #include <algorithm>
@@ -164,6 +165,10 @@ const char* getFramebufferStatusMessage(GLenum status)
       return "Incomplete framebuffer read buffer";
     case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
       return "Framebuffer configuration is unsupported";
+    case GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS_ARB:
+      return "Framebuffer layer targets incomplete";
+    case GL_FRAMEBUFFER_INCOMPLETE_LAYER_COUNT_ARB:
+      return "Framebuffer layer counts incomplete";
   }
 
   logError("Unknown OpenGL framebuffer status %u", status);
@@ -281,7 +286,8 @@ WindowConfig::WindowConfig():
   title("Wendy"),
   width(640),
   height(480),
-  mode(WINDOWED)
+  mode(WINDOWED),
+  resizable(true)
 {
 }
 
@@ -289,18 +295,21 @@ WindowConfig::WindowConfig(const String& initTitle):
   title(initTitle),
   width(640),
   height(480),
-  mode(WINDOWED)
+  mode(WINDOWED),
+  resizable(true)
 {
 }
 
 WindowConfig::WindowConfig(const String& initTitle,
                            unsigned int initWidth,
                            unsigned int initHeight,
-                           WindowMode initMode):
+                           WindowMode initMode,
+                           bool initResizable):
   title(initTitle),
   width(initWidth),
   height(initHeight),
-  mode(initMode)
+  mode(initMode),
+  resizable(initResizable)
 {
 }
 
@@ -458,16 +467,24 @@ Stats::Stats():
 void Stats::addFrame()
 {
   frameCount++;
+  frameRate = 0.f;
 
+  if (!frames.empty())
+  {
+    // Add the previous frame duration
+    frames.front().duration = timer.getDeltaTime();
+
+    // Calculate frame rate
+    for (FrameQueue::const_iterator f = frames.begin();  f != frames.end();  f++)
+      frameRate += float(f->duration);
+
+    frameRate = float(frames.size()) / frameRate;
+  }
+
+  // Add new empty frame for recording the stats
   frames.push_front(Frame());
   if (frames.size() > 60)
     frames.pop_back();
-
-  frameRate = 0.f;
-  const float factor = 1.f / frames.size();
-
-  for (FrameQueue::const_iterator f = frames.begin();  f != frames.end();  f++)
-    frameRate += (float) f->duration * factor;
 }
 
 void Stats::addPasses(unsigned int count)
@@ -476,36 +493,33 @@ void Stats::addPasses(unsigned int count)
   frame.passCount += count;
 }
 
-void Stats::addPrimitives(PrimitiveType type, unsigned int count)
+void Stats::addPrimitives(PrimitiveType type, unsigned int vertexCount)
 {
-  if (!count)
-    return;
-
   Frame& frame = frames.front();
-  frame.vertexCount += count;
+  frame.vertexCount += vertexCount;
 
   switch (type)
   {
     case POINT_LIST:
-      frame.pointCount += count;
+      frame.pointCount += vertexCount;
       break;
     case LINE_LIST:
-      frame.lineCount += count / 2;
+      frame.lineCount += vertexCount / 2;
       break;
     case LINE_STRIP:
-      frame.lineCount += count - 1;
+      frame.lineCount += vertexCount - 1;
       break;
     case TRIANGLE_LIST:
-      frame.triangleCount += count / 3;
+      frame.triangleCount += vertexCount / 3;
       break;
     case TRIANGLE_STRIP:
-      frame.triangleCount += count - 2;
+      frame.triangleCount += vertexCount - 2;
       break;
     case TRIANGLE_FAN:
-      frame.triangleCount += count - 1;
+      frame.triangleCount += vertexCount - 1;
       break;
     default:
-      logError("Invalid primitive type %u", type);
+      panic("Invalid primitive type %u", type);
   }
 }
 
@@ -638,13 +652,13 @@ void Context::render(PrimitiveType type, unsigned int start, unsigned int count)
 {
   if (!currentProgram)
   {
-    logError("Unable to render without a current shader program");
+    logError("Cannot render without a current shader program");
     return;
   }
 
   if (!currentVertexBuffer)
   {
-    logError("Unable to render without a current vertex buffer");
+    logError("Cannot render without a current vertex buffer");
     return;
   }
 
@@ -778,11 +792,11 @@ void Context::createSharedSampler(const char* name, Sampler::Type type, int ID)
   if (getSharedSamplerID(name, type) != INVALID_SHARED_STATE_ID)
     return;
 
-  declaration.append("uniform ");
-  declaration.append(Sampler::getTypeName(type));
-  declaration.append(" ");
-  declaration.append(name);
-  declaration.append(";\n");
+  declaration += "uniform ";
+  declaration += Sampler::getTypeName(type);
+  declaration += " ";
+  declaration += name;
+  declaration += ";\n";
 
   samplers.push_back(SharedSampler(name, type, ID));
 }
@@ -798,11 +812,11 @@ void Context::createSharedUniform(const char* name, Uniform::Type type, int ID)
   if (getSharedUniformID(name, type) != INVALID_SHARED_STATE_ID)
     return;
 
-  declaration.append("uniform ");
-  declaration.append(Uniform::getTypeName(type));
-  declaration.append(" ");
-  declaration.append(name);
-  declaration.append(";\n");
+  declaration += "uniform ";
+  declaration += Uniform::getTypeName(type);
+  declaration += " ";
+  declaration += name;
+  declaration += ";\n";
 
   uniforms.push_back(SharedUniform(name, type, ID));
 }
@@ -1086,9 +1100,9 @@ void Context::setTitle(const char* newTitle)
   title = newTitle;
 }
 
-ResourceIndex& Context::getIndex() const
+ResourceCache& Context::getCache() const
 {
-  return index;
+  return cache;
 }
 
 Version Context::getVersion() const
@@ -1116,11 +1130,11 @@ SignalProxy2<void, unsigned int, unsigned int> Context::getResizedSignal()
   return resizedSignal;
 }
 
-bool Context::createSingleton(ResourceIndex& index,
+bool Context::createSingleton(ResourceCache& cache,
                               const WindowConfig& windowConfig,
                               const ContextConfig& contextConfig)
 {
-  Ptr<Context> context(new Context(index));
+  Ptr<Context> context(new Context(cache));
   if (!context->init(windowConfig, contextConfig))
     return false;
 
@@ -1128,8 +1142,8 @@ bool Context::createSingleton(ResourceIndex& index,
   return true;
 }
 
-Context::Context(ResourceIndex& initIndex):
-  index(initIndex),
+Context::Context(ResourceCache& initCache):
+  cache(initCache),
   refreshMode(AUTOMATIC_REFRESH),
   needsRefresh(false),
   needsClosing(false),
@@ -1146,7 +1160,7 @@ Context::Context(ResourceIndex& initIndex):
 }
 
 Context::Context(const Context& source):
-  index(source.index)
+  cache(source.cache)
 {
   panic("OpenGL contexts may not be copied");
 }
@@ -1188,6 +1202,8 @@ bool Context::init(const WindowConfig& windowConfig,
     glfwOpenWindowHint(GLFW_OPENGL_VERSION_MAJOR, version.m);
     glfwOpenWindowHint(GLFW_OPENGL_VERSION_MINOR, version.n);
 
+    glfwOpenWindowHint(GLFW_WINDOW_NO_RESIZE, !windowConfig.resizable);
+
     if (version > Version(3,1))
     {
       // Wendy still uses deprecated functionality
@@ -1202,7 +1218,7 @@ bool Context::init(const WindowConfig& windowConfig,
                         colorBits / 3, colorBits / 3, colorBits / 3, 0,
                         contextConfig.depthBits, contextConfig.stencilBits, mode))
     {
-      logError("Unable to create GLFW window");
+      logError("Failed to create GLFW window");
       return false;
     }
 
@@ -1225,7 +1241,7 @@ bool Context::init(const WindowConfig& windowConfig,
   {
     if (glewInit() != GLEW_OK)
     {
-      logError("Unable to initialize GLEW");
+      logError("Failed to initialize GLEW");
       return false;
     }
 

@@ -4,8 +4,8 @@ Copyright (c) 2003-2006 Erwin Coumans  http://continuousphysics.com/Bullet/
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the use of this software.
-Permission is granted to anyone to use this software for any purpose, 
-including commercial applications, and to alter it and redistribute it freely, 
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
 subject to the following restrictions:
 
 1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
@@ -13,8 +13,8 @@ subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef RAYCAST_TRI_CALLBACK_H
-#define RAYCAST_TRI_CALLBACK_H
+#ifndef BT_RAYCAST_TRI_CALLBACK_H
+#define BT_RAYCAST_TRI_CALLBACK_H
 
 #include "btTriangleCallback.h"
 #include "btTransform.h"
@@ -43,11 +43,11 @@ public:
 	btScalar	m_hitFraction;
 
 	btTriangleRaycastCallback(const btVector3& from,const btVector3& to, unsigned int flags=0);
-	
+
 	virtual void processTriangle(btVector3* triangle, int partId, int triangleIndex);
 
 	virtual btScalar reportHit(const btVector3& hitNormalLocal, btScalar hitFraction, int partId, int triangleIndex ) = 0;
-	
+
 };
 
 class btTriangleConvexcastCallback : public btTriangleCallback
@@ -58,7 +58,8 @@ public:
 	btTransform m_convexShapeTo;
 	btTransform m_triangleToWorld;
 	btScalar m_hitFraction;
-    btScalar m_triangleCollisionMargin;
+	btScalar m_triangleCollisionMargin;
+	btScalar m_allowedPenetration;
 
 	btTriangleConvexcastCallback (const btConvexShape* convexShape, const btTransform& convexShapeFrom, const btTransform& convexShapeTo, const btTransform& triangleToWorld, const btScalar triangleCollisionMargin);
 
@@ -67,5 +68,5 @@ public:
 	virtual btScalar reportHit (const btVector3& hitNormalLocal, const btVector3& hitPointLocal, btScalar hitFraction, int partId, int triangleIndex) = 0;
 };
 
-#endif //RAYCAST_TRI_CALLBACK_H
+#endif //BT_RAYCAST_TRI_CALLBACK_H
 

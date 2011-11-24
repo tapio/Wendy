@@ -38,6 +38,7 @@
 #include <cctype>
 
 #include <glm/gtx/compatibility.hpp>
+#include <glm/gtx/epsilon.hpp>
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -235,10 +236,8 @@ void Mesh::generateBounds(AABB& bounds) const
     return;
   }
 
-  typedef std::numeric_limits<float> limits;
-
-  vec3 minimum(limits::max());
-  vec3 maximum(limits::min());
+  vec3 minimum(std::numeric_limits<float>::max());
+  vec3 maximum(std::numeric_limits<float>::min());
 
   for (size_t i = 0;  i < vertices.size();  i++)
   {
@@ -345,9 +344,9 @@ unsigned int Mesh::getTriangleCount() const
   return count;
 }
 
-Ref<Mesh> Mesh::read(ResourceIndex& index, const Path& path)
+Ref<Mesh> Mesh::read(ResourceCache& cache, const Path& path)
 {
-  MeshReader reader(index);
+  MeshReader reader(cache);
   return reader.read(path);
 }
 
@@ -383,8 +382,11 @@ unsigned int VertexMerger::addAttributeLayer(unsigned int vertexIndex,
   {
     for (Vertex::LayerList::iterator i = vertex.layers.begin();  i != vertex.layers.end();  i++)
     {
-      if (dot(i->normal, normal) > 0.95f && i->texcoord == texcoord)
+      if (all(equalEpsilon(i->normal, normal, 0.001f)) &&
+          all(equalEpsilon(i->texcoord, texcoord, 0.001f)))
+      {
         return i->index;
+      }
     }
 
     vertex.layers.push_back(VertexLayer());
@@ -398,32 +400,32 @@ unsigned int VertexMerger::addAttributeLayer(unsigned int vertexIndex,
   }
   else
   {
-    size_t index = 0;
+    size_t index;
+    bool discontinuous = true;
 
     for (Vertex::LayerList::iterator i = vertex.layers.begin();  i != vertex.layers.end();  i++)
     {
-      if (i->texcoord == texcoord)
-        break;
+      if (all(equalEpsilon(i->texcoord, texcoord, 0.001f)))
+      {
+        if (all(equalEpsilon(i->normal, normal, 0.001f)))
+          return i->index;
 
-      index++;
+        discontinuous = false;
+        index = i->index;
+      }
     }
 
-    if (index == vertex.layers.size())
-    {
-      vertex.layers.push_back(VertexLayer());
-      VertexLayer& layer = vertex.layers.back();
+    if (discontinuous)
+      index = targetCount++;
 
-      layer.normal = vertex.layers.front().normal;
-      layer.texcoord = texcoord;
-      layer.index = targetCount++;
+    vertex.layers.push_back(VertexLayer());
+    VertexLayer& layer = vertex.layers.back();
 
-      index = vertex.layers.size() - 1;
-    }
+    layer.normal = normal;
+    layer.texcoord = texcoord;
+    layer.index = index;
 
-    for (Vertex::LayerList::iterator i = vertex.layers.begin();  i != vertex.layers.end();  i++)
-      i->normal = normalize(i->normal + normal);
-
-    return vertex.layers[index].index;
+    return index;
   }
 }
 
@@ -435,13 +437,27 @@ void VertexMerger::realizeVertices(Mesh::VertexList& result) const
   {
     const Vertex& vertex = vertices[i];
 
+    vec3 normal;
+
+    if (mode == MERGE_NORMALS)
+    {
+      for (size_t j = 0;  j < vertex.layers.size();  j++)
+        normal += vertex.layers[j].normal;
+
+      normal = normalize(normal);
+    }
+
     for (size_t j = 0;  j < vertex.layers.size();  j++)
     {
       const VertexLayer& layer = vertex.layers[j];
 
       result[layer.index].position = vertex.position;
-      result[layer.index].normal = layer.normal;
       result[layer.index].texcoord = layer.texcoord;
+
+      if (mode == MERGE_NORMALS)
+        result[layer.index].normal = normal;
+      else
+        result[layer.index].normal = layer.normal;
     }
   }
 }
@@ -453,20 +469,20 @@ void VertexMerger::setNormalMode(NormalMode newMode)
 
 ///////////////////////////////////////////////////////////////////////
 
-MeshReader::MeshReader(ResourceIndex& index):
+MeshReader::MeshReader(ResourceCache& index):
   ResourceReader(index)
 {
 }
 
 Ref<Mesh> MeshReader::read(const Path& path)
 {
-  if (Resource* cache = getIndex().findResource(path))
-    return dynamic_cast<Mesh*>(cache);
+  if (Resource* cached = getCache().findResource(path))
+    return dynamic_cast<Mesh*>(cached);
 
-  ResourceInfo info(getIndex(), path);
+  ResourceInfo info(getCache(), path);
 
   std::ifstream stream;
-  if (!getIndex().openFile(stream, info.path))
+  if (!getCache().openFile(stream, info.path))
     return NULL;
 
   String line;

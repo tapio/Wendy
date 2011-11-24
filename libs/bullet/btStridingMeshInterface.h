@@ -4,8 +4,8 @@ Copyright (c) 2003-2009 Erwin Coumans  http://bulletphysics.org
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the use of this software.
-Permission is granted to anyone to use this software for any purpose, 
-including commercial applications, and to alter it and redistribute it freely, 
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
 subject to the following restrictions:
 
 1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
@@ -13,8 +13,8 @@ subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef STRIDING_MESHINTERFACE_H
-#define STRIDING_MESHINTERFACE_H
+#ifndef BT_STRIDING_MESHINTERFACE_H
+#define BT_STRIDING_MESHINTERFACE_H
 
 #include "btVector3.h"
 #include "btTriangleCallback.h"
@@ -30,7 +30,7 @@ subject to the following restrictions:
 class  btStridingMeshInterface
 {
 	protected:
-	
+
 		btVector3 m_scaling;
 
 	public:
@@ -52,11 +52,11 @@ class  btStridingMeshInterface
 		/// this subpart has a continuous array of vertices and indices
 		/// in this way the mesh can be handled as chunks of memory with striding
 		/// very similar to OpenGL vertexarray support
-		/// make a call to unLockVertexBase when the read and write access is finished	
+		/// make a call to unLockVertexBase when the read and write access is finished
 		virtual void	getLockedVertexIndexBase(unsigned char **vertexbase, int& numverts,PHY_ScalarType& type, int& stride,unsigned char **indexbase,int & indexstride,int& numfaces,PHY_ScalarType& indicestype,int subpart=0)=0;
-		
+
 		virtual void	getLockedReadOnlyVertexIndexBase(const unsigned char **vertexbase, int& numverts,PHY_ScalarType& type, int& stride,const unsigned char **indexbase,int & indexstride,int& numfaces,PHY_ScalarType& indicestype,int subpart=0) const=0;
-	
+
 		/// unLockVertexBase finishes the access to a subpart of the triangle mesh
 		/// make a call to unLockVertexBase when the read and write access (using getLockedVertexIndexBase) is finished
 		virtual void	unLockVertexBase(int subpart)=0;
@@ -116,6 +116,13 @@ struct	btShortIntIndexTripletData
 	char	m_pad[2];
 };
 
+struct	btCharIndexTripletData
+{
+	unsigned char m_values[3];
+	char	m_pad;
+};
+
+
 ///do not change those serialization structures, it requires an updated sBulletDNAstr/sBulletDNAstr64
 struct	btMeshPartData
 {
@@ -124,6 +131,7 @@ struct	btMeshPartData
 
 	btIntIndexData				*m_indices32;
 	btShortIntIndexTripletData	*m_3indices16;
+	btCharIndexTripletData		*m_3indices8;
 
 	btShortIntIndexData			*m_indices16;//backwards compatibility
 
@@ -151,4 +159,4 @@ SIMD_FORCE_INLINE	int	btStridingMeshInterface::calculateSerializeBufferSize() co
 
 
 
-#endif //STRIDING_MESHINTERFACE_H
+#endif //BT_STRIDING_MESHINTERFACE_H

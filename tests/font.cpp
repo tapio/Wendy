@@ -33,7 +33,8 @@ public:
   bool init();
   void run();
 private:
-  ResourceIndex index;
+  void onContextResized(unsigned int width, unsigned int height);
+  ResourceCache cache;
   Ref<render::SharedProgramState> state;
   Ptr<render::GeometryPool> pool;
   Ref<render::Font> font;
@@ -53,10 +54,10 @@ bool Test::init()
   if (!mediaPath)
     mediaPath = WENDY_MEDIA_DIR;
 
-  if (!index.addSearchPath(Path(mediaPath)))
+  if (!cache.addSearchPath(Path(mediaPath)))
     return false;
 
-  if (!GL::Context::createSingleton(index, GL::WindowConfig("Text Rendering Test")))
+  if (!GL::Context::createSingleton(cache, GL::WindowConfig("Text Rendering Test")))
   {
     logError("Failed to create OpenGL context");
     return false;
@@ -64,6 +65,7 @@ bool Test::init()
 
   GL::Context* context = GL::Context::getSingleton();
   context->setRefreshMode(GL::Context::MANUAL_REFRESH);
+  context->getResizedSignal().connect(*this, &Test::onContextResized);
 
   state = new render::SharedProgramState();
   state->reserveSupported(*context);
@@ -102,6 +104,12 @@ void Test::run()
     }
   }
   while (context->update());
+}
+
+void Test::onContextResized(unsigned int width, unsigned int height)
+{
+  GL::Context* context = GL::Context::getSingleton();
+  context->setViewportArea(Recti(0, 0, width, height));
 }
 
 } /*namespace*/

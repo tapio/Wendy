@@ -4,8 +4,8 @@ btConeTwistConstraint is Copyright (c) 2007 Starbreeze Studios
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the use of this software.
-Permission is granted to anyone to use this software for any purpose, 
-including commercial applications, and to alter it and redistribute it freely, 
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
 subject to the following restrictions:
 
 1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
@@ -33,8 +33,8 @@ and swing 1 and 2 are along the z and y axes respectively.
 
 
 
-#ifndef CONETWISTCONSTRAINT_H
-#define CONETWISTCONSTRAINT_H
+#ifndef BT_CONETWISTCONSTRAINT_H
+#define BT_CONETWISTCONSTRAINT_H
 
 #include "btVector3.h"
 #include "btJacobianEntry.h"
@@ -57,7 +57,7 @@ public:
 #endif
 	btJacobianEntry	m_jac[3]; //3 orthogonal linear constraints
 
-	btTransform m_rbAFrame; 
+	btTransform m_rbAFrame;
 	btTransform m_rbBFrame;
 
 	btScalar	m_limitSoftness;
@@ -104,13 +104,13 @@ public:
 	btQuaternion m_qTarget;
 	btScalar	 m_maxMotorImpulse;
 	btVector3	 m_accMotorImpulse;
-	
+
 	// parameters
 	int			m_flags;
 	btScalar	m_linCFM;
 	btScalar	m_linERP;
 	btScalar	m_angCFM;
-	
+
 protected:
 
 	void init();
@@ -127,7 +127,7 @@ protected:
 public:
 
 	btConeTwistConstraint(btRigidBody& rbA,btRigidBody& rbB,const btTransform& rbAFrame, const btTransform& rbBFrame);
-	
+
 	btConeTwistConstraint(btRigidBody& rbA,const btTransform& rbAFrame);
 
 	virtual void	buildJacobian();
@@ -135,14 +135,15 @@ public:
 	virtual void getInfo1 (btConstraintInfo1* info);
 
 	void	getInfo1NonVirtual(btConstraintInfo1* info);
-	
+
 	virtual void getInfo2 (btConstraintInfo2* info);
-	
+
 	void	getInfo2NonVirtual(btConstraintInfo2* info,const btTransform& transA,const btTransform& transB,const btMatrix3x3& invInertiaWorldA,const btMatrix3x3& invInertiaWorldB);
 
 	virtual	void	solveConstraintObsolete(btRigidBody& bodyA,btRigidBody& bodyB,btScalar	timeStep);
 
 	void	updateRHS(btScalar	timeStep);
+
 
 	const btRigidBody& getRigidBodyA() const
 	{
@@ -205,7 +206,7 @@ public:
 		m_relaxationFactor = _relaxationFactor;
 	}
 
-	const btTransform& getAFrame() { return m_rbAFrame; };	
+	const btTransform& getAFrame() { return m_rbAFrame; };
 	const btTransform& getBFrame() { return m_rbBFrame; };
 
 	inline int getSolveTwistLimit()
@@ -244,7 +245,6 @@ public:
 	}
 	bool isPastSwingLimit() { return m_solveSwingLimit; }
 
-
 	void setDamping(btScalar damping) { m_damping = damping; }
 
 	void enableMotor(bool b) { m_bMotorEnabled = b; }
@@ -265,9 +265,23 @@ public:
 
 	btVector3 GetPointForAngle(btScalar fAngleInRadians, btScalar fLength) const;
 
-	///override the default global value of a parameter (such as ERP or CFM), optionally provide the axis (0..5). 
+	///override the default global value of a parameter (such as ERP or CFM), optionally provide the axis (0..5).
 	///If no axis is provided, it uses the default axis for this constraint.
 	virtual	void setParam(int num, btScalar value, int axis = -1);
+
+	virtual void setFrames(const btTransform& frameA, const btTransform& frameB);
+
+	const btTransform& getFrameOffsetA() const
+	{
+		return m_rbAFrame;
+	}
+
+	const btTransform& getFrameOffsetB() const
+	{
+		return m_rbBFrame;
+	}
+
+
 	///return the local value of parameter
 	virtual	btScalar getParam(int num, int axis = -1) const;
 
@@ -294,11 +308,11 @@ struct	btConeTwistConstraintData
 	float	m_relaxationFactor;
 
 	float	m_damping;
-		
+
 	char m_pad[4];
 
 };
-	
+
 
 
 SIMD_FORCE_INLINE int	btConeTwistConstraint::calculateSerializeBufferSize() const
@@ -316,7 +330,7 @@ SIMD_FORCE_INLINE const char*	btConeTwistConstraint::serialize(void* dataBuffer,
 
 	m_rbAFrame.serializeFloat(cone->m_rbAFrame);
 	m_rbBFrame.serializeFloat(cone->m_rbBFrame);
-	
+
 	cone->m_swingSpan1 = float(m_swingSpan1);
 	cone->m_swingSpan2 = float(m_swingSpan2);
 	cone->m_twistSpan = float(m_twistSpan);
@@ -329,4 +343,4 @@ SIMD_FORCE_INLINE const char*	btConeTwistConstraint::serialize(void* dataBuffer,
 }
 
 
-#endif //CONETWISTCONSTRAINT_H
+#endif //BT_CONETWISTCONSTRAINT_H

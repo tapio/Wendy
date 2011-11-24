@@ -24,6 +24,7 @@
 ///////////////////////////////////////////////////////////////////////
 
 #include <wendy/Config.h>
+#include <wendy/Core.h>
 
 #include <wendy/OpenAL.h>
 #include <wendy/ALContext.h>
@@ -132,14 +133,14 @@ void Context::setListenerGain(float newGain)
   }
 }
 
-ResourceIndex& Context::getIndex() const
+ResourceCache& Context::getCache() const
 {
-  return index;
+  return cache;
 }
 
-bool Context::createSingleton(ResourceIndex& index)
+bool Context::createSingleton(ResourceCache& cache)
 {
-  Ptr<Context> context(new Context(index));
+  Ptr<Context> context(new Context(cache));
   if (!context->init())
     return false;
 
@@ -147,8 +148,8 @@ bool Context::createSingleton(ResourceIndex& index)
   return true;
 }
 
-Context::Context(ResourceIndex& initIndex):
-  index(initIndex),
+Context::Context(ResourceCache& initCache):
+  cache(initCache),
   device(NULL),
   context(NULL),
   listenerGain(1.f)
@@ -156,7 +157,7 @@ Context::Context(ResourceIndex& initIndex):
 }
 
 Context::Context(const Context& source):
-  index(source.index)
+  cache(source.cache)
 {
   panic("OpenAL contexts may not be copied");
 }

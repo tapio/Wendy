@@ -4,8 +4,8 @@ Copyright (c) 2003-2006 Erwin Coumans  http://continuousphysics.com/Bullet/
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the use of this software.
-Permission is granted to anyone to use this software for any purpose, 
-including commercial applications, and to alter it and redistribute it freely, 
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
 subject to the following restrictions:
 
 1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
@@ -13,8 +13,8 @@ subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef PERSISTENT_MANIFOLD_H
-#define PERSISTENT_MANIFOLD_H
+#ifndef BT_PERSISTENT_MANIFOLD_H
+#define BT_PERSISTENT_MANIFOLD_H
 
 
 #include "btVector3.h"
@@ -32,11 +32,11 @@ typedef bool (*ContactProcessedCallback)(btManifoldPoint& cp,void* body0,void* b
 extern ContactDestroyedCallback	gContactDestroyedCallback;
 extern ContactProcessedCallback gContactProcessedCallback;
 
-
+//the enum starts at 1024 to avoid type conflicts with btTypedConstraint
 enum btContactManifoldTypes
 {
-	BT_PERSISTENT_MANIFOLD_TYPE = 1,
-	MAX_CONTACT_MANIFOLD_TYPE
+	MIN_CONTACT_MANIFOLD_TYPE = 1024,
+	BT_PERSISTENT_MANIFOLD_TYPE
 };
 
 #define MANIFOLD_CACHE_SIZE 4
@@ -66,7 +66,7 @@ ATTRIBUTE_ALIGNED128( class) btPersistentManifold : public btTypedObject
 	btScalar	m_contactBreakingThreshold;
 	btScalar	m_contactProcessingThreshold;
 
-	
+
 	/// sort cached points so most isolated points come first
 	int	sortCachedPoints(const btManifoldPoint& pt);
 
@@ -108,7 +108,7 @@ public:
 #ifdef DEBUG_PERSISTENCY
 	void	DebugPersistency();
 #endif //
-	
+
 	SIMD_FORCE_INLINE int	getNumContacts() const { return m_cachedPoints;}
 
 	SIMD_FORCE_INLINE const btManifoldPoint& getContactPoint(int index) const
@@ -130,7 +130,7 @@ public:
 	{
 		return m_contactProcessingThreshold;
 	}
-	
+
 	int getCacheEntry(const btManifoldPoint& newPoint) const;
 
 	int addManifoldPoint( const btManifoldPoint& newPoint);
@@ -141,14 +141,14 @@ public:
 
 		int lastUsedIndex = getNumContacts() - 1;
 //		m_pointCache[index] = m_pointCache[lastUsedIndex];
-		if(index != lastUsedIndex) 
+		if(index != lastUsedIndex)
 		{
-			m_pointCache[index] = m_pointCache[lastUsedIndex]; 
+			m_pointCache[index] = m_pointCache[lastUsedIndex];
 			//get rid of duplicated userPersistentData pointer
 			m_pointCache[lastUsedIndex].m_userPersistentData = 0;
-			m_pointCache[lastUsedIndex].mConstraintRow[0].mAccumImpulse = 0.f;
-			m_pointCache[lastUsedIndex].mConstraintRow[1].mAccumImpulse = 0.f;
-			m_pointCache[lastUsedIndex].mConstraintRow[2].mAccumImpulse = 0.f;
+			m_pointCache[lastUsedIndex].mConstraintRow[0].m_accumImpulse = 0.f;
+			m_pointCache[lastUsedIndex].mConstraintRow[1].m_accumImpulse = 0.f;
+			m_pointCache[lastUsedIndex].mConstraintRow[2].m_accumImpulse = 0.f;
 
 			m_pointCache[lastUsedIndex].m_appliedImpulse = 0.f;
 			m_pointCache[lastUsedIndex].m_lateralFrictionInitialized = false;
@@ -167,35 +167,36 @@ public:
 #define MAINTAIN_PERSISTENCY 1
 #ifdef MAINTAIN_PERSISTENCY
 		int	lifeTime = m_pointCache[insertIndex].getLifeTime();
-		btScalar	appliedImpulse = m_pointCache[insertIndex].mConstraintRow[0].mAccumImpulse;
-		btScalar	appliedLateralImpulse1 = m_pointCache[insertIndex].mConstraintRow[1].mAccumImpulse;
-		btScalar	appliedLateralImpulse2 = m_pointCache[insertIndex].mConstraintRow[2].mAccumImpulse;
+		btScalar	appliedImpulse = m_pointCache[insertIndex].mConstraintRow[0].m_accumImpulse;
+		btScalar	appliedLateralImpulse1 = m_pointCache[insertIndex].mConstraintRow[1].m_accumImpulse;
+		btScalar	appliedLateralImpulse2 = m_pointCache[insertIndex].mConstraintRow[2].m_accumImpulse;
 //		bool isLateralFrictionInitialized = m_pointCache[insertIndex].m_lateralFrictionInitialized;
-		
-		
-			
+
+
+
 		btAssert(lifeTime>=0);
 		void* cache = m_pointCache[insertIndex].m_userPersistentData;
-		
+
 		m_pointCache[insertIndex] = newPoint;
 
 		m_pointCache[insertIndex].m_userPersistentData = cache;
 		m_pointCache[insertIndex].m_appliedImpulse = appliedImpulse;
 		m_pointCache[insertIndex].m_appliedImpulseLateral1 = appliedLateralImpulse1;
 		m_pointCache[insertIndex].m_appliedImpulseLateral2 = appliedLateralImpulse2;
-		
-		m_pointCache[insertIndex].mConstraintRow[0].mAccumImpulse =  appliedImpulse;
-		m_pointCache[insertIndex].mConstraintRow[1].mAccumImpulse = appliedLateralImpulse1;
-		m_pointCache[insertIndex].mConstraintRow[2].mAccumImpulse = appliedLateralImpulse2;
+
+		m_pointCache[insertIndex].mConstraintRow[0].m_accumImpulse =  appliedImpulse;
+		m_pointCache[insertIndex].mConstraintRow[1].m_accumImpulse = appliedLateralImpulse1;
+		m_pointCache[insertIndex].mConstraintRow[2].m_accumImpulse = appliedLateralImpulse2;
 
 
 		m_pointCache[insertIndex].m_lifeTime = lifeTime;
 #else
 		clearUserCache(m_pointCache[insertIndex]);
 		m_pointCache[insertIndex] = newPoint;
-	
+
 #endif
 	}
+
 
 	bool validContactDistance(const btManifoldPoint& pt) const
 	{
@@ -204,7 +205,7 @@ public:
 	/// calculated new worldspace coordinates and depth, and reject points that exceed the collision margin
 	void	refreshContactPoints(  const btTransform& trA,const btTransform& trB);
 
-	
+
 	SIMD_FORCE_INLINE	void	clearManifold()
 	{
 		int i;
@@ -224,4 +225,4 @@ public:
 
 
 
-#endif //PERSISTENT_MANIFOLD_H
+#endif //BT_PERSISTENT_MANIFOLD_H

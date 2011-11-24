@@ -21,8 +21,8 @@ subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef BVH_CONCAVE_COLLISION_ALGORITHM_H
-#define BVH_CONCAVE_COLLISION_ALGORITHM_H
+#ifndef BT_GIMPACT_BVH_CONCAVE_COLLISION_ALGORITHM_H
+#define BT_GIMPACT_BVH_CONCAVE_COLLISION_ALGORITHM_H
 
 #include "btActivatingCollisionAlgorithm.h"
 #include "btDispatcher.h"
@@ -222,13 +222,13 @@ public:
 
 	//! Use this function for register the algorithm externally
 	static void registerAlgorithm(btCollisionDispatcher * dispatcher);
-
+#ifdef TRI_COLLISION_PROFILING
 	//! Gets the average time in miliseconds of tree collisions
 	static float getAverageTreeCollisionTime();
 
 	//! Gets the average time in miliseconds of triangle collisions
 	static float getAverageTriangleCollisionTime();
-
+#endif //TRI_COLLISION_PROFILING
 
 	//! Collides two gimpact shapes
 	/*!
@@ -261,37 +261,37 @@ public:
 
 
 		/// Accessor/Mutator pairs for Part and triangleID
-    void 	setFace0(int value) 
-    { 
-    	m_triface0 = value; 
+    void 	setFace0(int value)
+    {
+    	m_triface0 = value;
     }
-    int getFace0() 
-    { 
-    	return m_triface0; 
+    int getFace0()
+    {
+    	return m_triface0;
     }
-    void setFace1(int value) 
-    { 
-    	m_triface1 = value; 
+    void setFace1(int value)
+    {
+    	m_triface1 = value;
     }
-    int getFace1() 
-    { 
-    	return m_triface1; 
+    int getFace1()
+    {
+    	return m_triface1;
     }
-    void setPart0(int value) 
-    { 
-    	m_part0 = value; 
+    void setPart0(int value)
+    {
+    	m_part0 = value;
     }
-    int getPart0() 
-    { 
-    	return m_part0; 
+    int getPart0()
+    {
+    	return m_part0;
     }
-    void setPart1(int value) 
-    { 
-    	m_part1 = value; 
+    void setPart1(int value)
+    {
+    	m_part1 = value;
 		}
-    int getPart1() 
-    { 
-    	return m_part1; 
+    int getPart1()
+    {
+    	return m_part1;
     }
 
 };
@@ -303,4 +303,4 @@ public:
 
 
 
-#endif //BVH_CONCAVE_COLLISION_ALGORITHM_H
+#endif //BT_GIMPACT_BVH_CONCAVE_COLLISION_ALGORITHM_H

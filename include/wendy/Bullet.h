@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////
-// Wendy library
+// Wendy Bullet helpers
 // Copyright (c) 2011 Camilla Berglund <elmindreda@elmindreda.org>
 //
 // This software is provided 'as-is', without any express or implied
@@ -28,6 +28,8 @@
 
 #include <wendy/Core.h>
 #include <wendy/Transform.h>
+#include <wendy/Path.h>
+#include <wendy/Resource.h>
 
 #include <btBulletCollisionCommon.h>
 #include <btBulletDynamicsCommon.h>
@@ -41,11 +43,51 @@ namespace wendy
 
 ///////////////////////////////////////////////////////////////////////
 
+/*! @defgroup bullet Bullet helper API
+ *
+ *  This module provides functions and classes that make it easier to use Wendy
+ *  and Bullet together in an application.  It makes no attempt to wrap Bullet,
+ *  as it already provides a good C++ API.
+ */
+
+///////////////////////////////////////////////////////////////////////
+
+/*! @ingroup bullet
+ */
 Transform3 convert(const btTransform& transform);
+
+/*! @ingroup bullet
+ */
 btTransform convert(const Transform3& transform);
 
+/*! @ingroup bullet
+ */
 vec3 convert(const btVector3& vector);
+
+/*! @ingroup bullet
+ */
 btVector3 convert(const vec3& vector);
+
+///////////////////////////////////////////////////////////////////////
+
+/*! @ingroup bullet
+ */
+class BvhMeshShapeReader : public ResourceReader
+{
+public:
+  BvhMeshShapeReader(ResourceCache& cache);
+  btBvhTriangleMeshShape* read(const Path& path);
+};
+
+///////////////////////////////////////////////////////////////////////
+
+/*! @ingroup bullet
+ */
+class BvhMeshShapeWriter
+{
+public:
+  bool write(const Path& path, const btBvhTriangleMeshShape& shape);
+};
 
 ///////////////////////////////////////////////////////////////////////
 

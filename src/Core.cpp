@@ -55,15 +55,6 @@ int vasprintf(char** result, const char* format, va_list vl)
 
 #endif /*WENDY_HAVE_VASPRINTF*/
 
-#if !WENDY_HAVE_STRTOF
-
-float strtof(const char* nptr, char** endptr)
-{
-  return (float) std::strtod(nptr, endptr);
-}
-
-#endif /*WENDY_HAVE_STRTOF*/
-
 ///////////////////////////////////////////////////////////////////////
 
 namespace wendy
@@ -220,6 +211,27 @@ quat quatCast(const String& string)
 
   quat result;
   stream >> result.x >> result.y >> result.z >> result.w;
+  return result;
+}
+
+String format(const char* format, ...)
+{
+  String result;
+
+  va_list vl;
+  char* text;
+  int count;
+
+  va_start(vl, format);
+  count = vasprintf(&text, format, vl);
+  va_end(vl);
+
+  if (count < 0)
+    return String();
+
+  result = text;
+  std::free(text);
+
   return result;
 }
 

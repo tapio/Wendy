@@ -69,11 +69,16 @@ Config::Config(unsigned int initWidth, unsigned int initHeight):
 void Renderer::render(const render::Scene& scene, const render::Camera& camera)
 {
   GL::Context& context = pool.getContext();
+
+  Ref<GL::SharedProgramState> prevState = context.getCurrentSharedProgramState();
   context.setCurrentSharedProgramState(state);
 
-  GL::Framebuffer& previousFramebuffer = context.getCurrentFramebuffer();
-
+  Ref<GL::Framebuffer> prevFramebuffer = &(context.getCurrentFramebuffer());
   context.setCurrentFramebuffer(*framebuffer);
+
+  const Recti prevViewportArea = context.getViewportArea();
+  context.setViewportArea(Recti(0, 0, framebuffer->getWidth(), framebuffer->getHeight()));
+
   context.clearDepthBuffer();
   context.clearColorBuffer();
 
@@ -90,7 +95,8 @@ void Renderer::render(const render::Scene& scene, const render::Camera& camera)
 
   renderOperations(scene.getOpaqueQueue());
 
-  context.setCurrentFramebuffer(previousFramebuffer);
+  context.setCurrentFramebuffer(*prevFramebuffer);
+  context.setViewportArea(prevViewportArea);
 
   state->setOrthoProjectionMatrix(1.f, 1.f);
 
@@ -101,7 +107,7 @@ void Renderer::render(const render::Scene& scene, const render::Camera& camera)
   for (unsigned int i = 0;  i < scene.getLightCount();  i++)
     renderLight(camera, scene.getLight(i));
 
-  context.setCurrentSharedProgramState(NULL);
+  context.setCurrentSharedProgramState(prevState);
 }
 
 SharedProgramState& Renderer::getSharedProgramState()
@@ -146,7 +152,7 @@ Renderer::Renderer(render::GeometryPool& initPool):
 bool Renderer::init(const Config& config)
 {
   GL::Context& context = pool.getContext();
-  ResourceIndex& index = context.getIndex();
+  ResourceCache& cache = context.getCache();
 
   if (config.state)
     state = config.state;
@@ -157,9 +163,9 @@ bool Renderer::init(const Config& config)
 
   // Create G-buffer color/emission texture
   {
-    Image image(index, PixelFormat::RGBA8, config.width, config.height);
+    Image image(cache, PixelFormat::RGBA8, config.width, config.height);
 
-    colorTexture = GL::Texture::create(index,
+    colorTexture = GL::Texture::create(cache,
                                        context,
                                        image,
                                        GL::Texture::RECTANGULAR);
@@ -174,9 +180,9 @@ bool Renderer::init(const Config& config)
 
   // Create G-buffer normal/specularity texture
   {
-    Image image(index, PixelFormat::RGBA8, config.width, config.height);
+    Image image(cache, PixelFormat::RGBA8, config.width, config.height);
 
-    normalTexture = GL::Texture::create(index,
+    normalTexture = GL::Texture::create(cache,
                                         context,
                                         image,
                                         GL::Texture::RECTANGULAR);
@@ -191,9 +197,9 @@ bool Renderer::init(const Config& config)
 
   // Create G-buffer depth texture
   {
-    Image image(index, PixelFormat::DEPTH32, config.width, config.height);
+    Image image(cache, PixelFormat::DEPTH32, config.width, config.height);
 
-    depthTexture = GL::Texture::create(index,
+    depthTexture = GL::Texture::create(cache,
                                        context,
                                        image,
                                        GL::Texture::RECTANGULAR);

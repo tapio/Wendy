@@ -62,8 +62,7 @@ GLenum convertToGL(LockType type)
       return GL_READ_WRITE;
   }
 
-  logError("Invalid lock type %u", type);
-  return 0;
+  panic("Invalid lock type %u", type);
 }
 
 GLenum convertToGL(IndexBuffer::Usage usage)
@@ -78,8 +77,7 @@ GLenum convertToGL(IndexBuffer::Usage usage)
       return GL_DYNAMIC_DRAW;
   }
 
-  logError("Invalid index buffer usage %u", usage);
-  return 0;
+  panic("Invalid index buffer usage %u", usage);
 }
 
 GLenum convertToGL(VertexBuffer::Usage usage)
@@ -94,8 +92,7 @@ GLenum convertToGL(VertexBuffer::Usage usage)
       return GL_DYNAMIC_DRAW;
   }
 
-  logError("Invalid vertex buffer usage %u", usage);
-  return 0;
+  panic("Invalid vertex buffer usage %u", usage);
 }
 
 GLenum convertToGL(ImageFramebuffer::Attachment attachment)
@@ -176,8 +173,7 @@ void* VertexBuffer::lock(LockType type)
   void* mapping = glMapBuffer(GL_ARRAY_BUFFER, convertToGL(type));
   if (mapping == NULL)
   {
-    logError("Failed to lock vertex buffer: %s",
-             gluErrorString(glGetError()));
+    checkGL("Failed to lock vertex buffer");
     return NULL;
   }
 
@@ -347,7 +343,7 @@ void* IndexBuffer::lock(LockType type)
   void* mapping = glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, convertToGL(type));
   if (mapping == NULL)
   {
-    logError("Failed to lock index buffer: %s", gluErrorString(glGetError()));
+    checkGL("Failed to lock index buffer");
     return NULL;
   }
 
@@ -456,10 +452,9 @@ size_t IndexBuffer::getTypeSize(Type type)
       return sizeof(GLushort);
     case IndexBuffer::UINT32:
       return sizeof(GLuint);
-    default:
-      logError("Invalid index buffer type %u", type);
-      return 0;
   }
+
+  panic("Invalid index buffer type %u", type);
 }
 
 IndexBuffer::IndexBuffer(Context& initContext):
@@ -493,7 +488,7 @@ bool IndexBuffer::init(unsigned int initCount, Type initType, Usage initUsage)
                NULL,
                convertToGL(usage));
 
-  if (!checkGL("Error during creation of index buffer of element size %u",
+  if (!checkGL("Error during creation of index buffer of element size %zu",
                getTypeSize(type)))
   {
     context.setCurrentIndexBuffer(NULL);
@@ -543,7 +538,7 @@ void* VertexRange::lock(LockType type) const
     return NULL;
   }
 
-  Byte* vertices = (Byte*) vertexBuffer->lock(type);
+  uint8* vertices = (uint8*) vertexBuffer->lock(type);
   if (!vertices)
     return NULL;
 
@@ -627,7 +622,7 @@ void* IndexRange::lock(LockType type) const
     return NULL;
   }
 
-  Byte* indices = (Byte*) indexBuffer->lock(type);
+  uint8* indices = (uint8*) indexBuffer->lock(type);
   if (!indices)
     return NULL;
 

@@ -4,8 +4,8 @@ Copyright (c) 2003-2006 Erwin Coumans  http://continuousphysics.com/Bullet/
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the use of this software.
-Permission is granted to anyone to use this software for any purpose, 
-including commercial applications, and to alter it and redistribute it freely, 
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
 subject to the following restrictions:
 
 1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
@@ -13,9 +13,8 @@ subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef _DISPATCHER_H
-#define _DISPATCHER_H
-
+#ifndef BT_DISPATCHER_H
+#define BT_DISPATCHER_H
 #include "btScalar.h"
 
 class btCollisionAlgorithm;
@@ -27,6 +26,7 @@ class btOverlappingPairCache;
 
 class btPersistentManifold;
 class btStackAlloc;
+class btPoolAllocator;
 
 struct btDispatcherInfo
 {
@@ -40,7 +40,7 @@ struct btDispatcherInfo
 		m_stepCount(0),
 		m_dispatchFunc(DISPATCH_DISCRETE),
 		m_timeOfImpact(btScalar(1.)),
-		m_useContinuous(false),
+		m_useContinuous(true),
 		m_debugDraw(0),
 		m_enableSatConvex(false),
 		m_enableSPU(true),
@@ -48,7 +48,6 @@ struct btDispatcherInfo
 		m_allowedCcdPenetration(btScalar(0.04)),
 		m_useConvexConservativeDistanceUtil(false),
 		m_convexConservativeDistanceThreshold(0.0f),
-		m_convexMaxDistanceUseCPT(false),
 		m_stackAllocator(0)
 	{
 
@@ -65,7 +64,6 @@ struct btDispatcherInfo
 	btScalar	m_allowedCcdPenetration;
 	bool		m_useConvexConservativeDistanceUtil;
 	btScalar	m_convexConservativeDistanceThreshold;
-	bool		m_convexMaxDistanceUseCPT;
 	btStackAlloc*	m_stackAllocator;
 };
 
@@ -98,6 +96,10 @@ public:
 
 	virtual	btPersistentManifold**	getInternalManifoldPointer() = 0;
 
+	virtual	btPoolAllocator*	getInternalManifoldPool() = 0;
+
+	virtual	const btPoolAllocator*	getInternalManifoldPool() const = 0;
+
 	virtual	void* allocateCollisionAlgorithm(int size)  = 0;
 
 	virtual	void freeCollisionAlgorithm(void* ptr) = 0;
@@ -105,4 +107,4 @@ public:
 };
 
 
-#endif //_DISPATCHER_H
+#endif //BT_DISPATCHER_H

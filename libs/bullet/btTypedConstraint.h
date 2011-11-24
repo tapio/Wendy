@@ -4,8 +4,8 @@ Copyright (c) 2003-2010 Erwin Coumans  http://continuousphysics.com/Bullet/
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the use of this software.
-Permission is granted to anyone to use this software for any purpose, 
-including commercial applications, and to alter it and redistribute it freely, 
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
 subject to the following restrictions:
 
 1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
@@ -13,24 +13,26 @@ subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef TYPED_CONSTRAINT_H
-#define TYPED_CONSTRAINT_H
+#ifndef BT_TYPED_CONSTRAINT_H
+#define BT_TYPED_CONSTRAINT_H
 
 class btRigidBody;
 #include "btScalar.h"
 #include "btSolverConstraint.h"
-#include "btPersistentManifold.h"
 
 class btSerializer;
 
+//Don't change any of the existing enum values, so add enum types at the end for serialization compatibility
 enum btTypedConstraintType
 {
-	POINT2POINT_CONSTRAINT_TYPE=MAX_CONTACT_MANIFOLD_TYPE+1,
+	POINT2POINT_CONSTRAINT_TYPE=3,
 	HINGE_CONSTRAINT_TYPE,
 	CONETWIST_CONSTRAINT_TYPE,
 	D6_CONSTRAINT_TYPE,
 	SLIDER_CONSTRAINT_TYPE,
-	CONTACT_CONSTRAINT_TYPE
+	CONTACT_CONSTRAINT_TYPE,
+	D6_SPRING_CONSTRAINT_TYPE,
+	MAX_CONSTRAINT_TYPE
 };
 
 
@@ -43,7 +45,7 @@ enum btConstraintParams
 };
 
 #if 1
-	#define btAssertConstrParams(_par) btAssert(_par) 
+	#define btAssertConstrParams(_par) btAssert(_par)
 #else
 	#define btAssertConstrParams(_par)
 #endif
@@ -59,6 +61,10 @@ class btTypedConstraint : public btTypedObject
 		int	m_userConstraintId;
 		void* m_userConstraintPtr;
 	};
+
+	btScalar	m_breakingImpulseThreshold;
+	bool		m_isEnabled;
+
 
 	bool m_needsFeedback;
 
@@ -77,7 +83,7 @@ protected:
 
 	///internal method used by the constraint solver, don't use them directly
 	btScalar getMotorFactor(btScalar pos, btScalar lowLim, btScalar uppLim, btScalar vel, btScalar timeFact);
-	
+
 	static btRigidBody& getFixedBody();
 
 public:
@@ -135,7 +141,7 @@ public:
         (void)solverBodyB;
         (void)timeStep;
 	}
-	
+
 	///internal method used by the constraint solver, don't use them directly
 	virtual void getInfo1 (btConstraintInfo1* info)=0;
 
@@ -153,10 +159,32 @@ public:
 		return m_appliedImpulse;
 	}
 
+
+	btScalar	getBreakingImpulseThreshold() const
+	{
+		return 	m_breakingImpulseThreshold;
+	}
+
+	void	setBreakingImpulseThreshold(btScalar threshold)
+	{
+		m_breakingImpulseThreshold = threshold;
+	}
+
+	bool	isEnabled() const
+	{
+		return m_isEnabled;
+	}
+
+	void	setEnabled(bool enabled)
+	{
+		m_isEnabled=enabled;
+	}
+
+
 	///internal method used by the constraint solver, don't use them directly
 	virtual	void	solveConstraintObsolete(btRigidBody& /*bodyA*/,btRigidBody& /*bodyB*/,btScalar	/*timeStep*/) {};
 
-	
+
 	const btRigidBody& getRigidBodyA() const
 	{
 		return m_rbA;
@@ -166,7 +194,7 @@ public:
 		return m_rbB;
 	}
 
-	btRigidBody& getRigidBodyA() 
+	btRigidBody& getRigidBodyA()
 	{
 		return m_rbA;
 	}
@@ -207,8 +235,8 @@ public:
 
 	int getUid() const
 	{
-		return m_userConstraintId;   
-	} 
+		return m_userConstraintId;
+	}
 
 	bool	needsFeedback() const
 	{
@@ -222,7 +250,7 @@ public:
 		m_needsFeedback = needsFeedback;
 	}
 
-	///getAppliedImpulse is an estimated total applied impulse. 
+	///getAppliedImpulse is an estimated total applied impulse.
 	///This feedback could be used to determine breaking constraints or playing sounds.
 	btScalar	getAppliedImpulse() const
 	{
@@ -234,7 +262,7 @@ public:
 	{
 		return btTypedConstraintType(m_objectType);
 	}
-	
+
 	void setDbgDrawSize(btScalar dbgDrawSize)
 	{
 		m_dbgDrawSize = dbgDrawSize;
@@ -244,13 +272,13 @@ public:
 		return m_dbgDrawSize;
 	}
 
-	///override the default global value of a parameter (such as ERP or CFM), optionally provide the axis (0..5). 
+	///override the default global value of a parameter (such as ERP or CFM), optionally provide the axis (0..5).
 	///If no axis is provided, it uses the default axis for this constraint.
 	virtual	void	setParam(int num, btScalar value, int axis = -1) = 0;
 
 	///return the local value of parameter
 	virtual	btScalar getParam(int num, int axis = -1) const = 0;
-	
+
 	virtual	int	calculateSerializeBufferSize() const;
 
 	///fills the dataBuffer and returns the struct name (and 0 on failure)
@@ -258,7 +286,7 @@ public:
 
 };
 
-// returns angle in range [-SIMD_2_PI, SIMD_2_PI], closest to one of the limits 
+// returns angle in range [-SIMD_2_PI, SIMD_2_PI], closest to one of the limits
 // all arguments should be normalized angles (i.e. in range [-SIMD_PI, SIMD_PI])
 SIMD_FORCE_INLINE btScalar btAdjustAngleToLimits(btScalar angleInRadians, btScalar angleLowerLimitInRadians, btScalar angleUpperLimitInRadians)
 {
@@ -301,7 +329,7 @@ struct	btTypedConstraintData
 
 	int	m_disableCollisionsBetweenLinkedBodies;
 	char	m_pad4[4];
-	
+
 };
 
 SIMD_FORCE_INLINE	int	btTypedConstraint::calculateSerializeBufferSize() const
@@ -311,5 +339,98 @@ SIMD_FORCE_INLINE	int	btTypedConstraint::calculateSerializeBufferSize() const
 
 
 
+class btAngularLimit
+{
+private:
+	btScalar
+		m_center,
+		m_halfRange,
+		m_softness,
+		m_biasFactor,
+		m_relaxationFactor,
+		m_correction,
+		m_sign;
 
-#endif //TYPED_CONSTRAINT_H
+	bool
+		m_solveLimit;
+
+public:
+	/// Default constructor initializes limit as inactive, allowing free constraint movement
+	btAngularLimit()
+		:m_center(0.0f),
+		m_halfRange(-1.0f),
+		m_softness(0.9f),
+		m_biasFactor(0.3f),
+		m_relaxationFactor(1.0f),
+		m_correction(0.0f),
+		m_sign(0.0f),
+		m_solveLimit(false)
+	{}
+
+	/// Sets all limit's parameters.
+	/// When low > high limit becomes inactive.
+	/// When high - low > 2PI limit is ineffective too becouse no angle can exceed the limit
+	void set(btScalar low, btScalar high, btScalar _softness = 0.9f, btScalar _biasFactor = 0.3f, btScalar _relaxationFactor = 1.0f);
+
+	/// Checks conastaint angle against limit. If limit is active and the angle violates the limit
+	/// correction is calculated.
+	void test(const btScalar angle);
+
+	/// Returns limit's softness
+	inline btScalar getSoftness() const
+	{
+		return m_softness;
+	}
+
+	/// Returns limit's bias factor
+	inline btScalar getBiasFactor() const
+	{
+		return m_biasFactor;
+	}
+
+	/// Returns limit's relaxation factor
+	inline btScalar getRelaxationFactor() const
+	{
+		return m_relaxationFactor;
+	}
+
+	/// Returns correction value evaluated when test() was invoked
+	inline btScalar getCorrection() const
+	{
+		return m_correction;
+	}
+
+	/// Returns sign value evaluated when test() was invoked
+	inline btScalar getSign() const
+	{
+		return m_sign;
+	}
+
+	/// Gives half of the distance between min and max limit angle
+	inline btScalar getHalfRange() const
+	{
+		return m_halfRange;
+	}
+
+	/// Returns true when the last test() invocation recognized limit violation
+	inline bool isLimit() const
+	{
+		return m_solveLimit;
+	}
+
+	/// Checks given angle against limit. If limit is active and angle doesn't fit it, the angle
+	/// returned is modified so it equals to the limit closest to given angle.
+	void fit(btScalar& angle) const;
+
+	/// Returns correction value multiplied by sign value
+	btScalar getError() const;
+
+	btScalar getLow() const;
+
+	btScalar getHigh() const;
+
+};
+
+
+
+#endif //BT_TYPED_CONSTRAINT_H

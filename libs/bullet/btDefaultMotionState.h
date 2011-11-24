@@ -1,5 +1,5 @@
-#ifndef DEFAULT_MOTION_STATE_H
-#define DEFAULT_MOTION_STATE_H
+#ifndef BT_DEFAULT_MOTION_STATE_H
+#define BT_DEFAULT_MOTION_STATE_H
 
 #include "btMotionState.h"
 
@@ -21,7 +21,7 @@ struct	btDefaultMotionState : public btMotionState
 	}
 
 	///synchronizes world transform from user to physics
-	virtual void	getWorldTransform(btTransform& centerOfMassWorldTrans ) const 
+	virtual void	getWorldTransform(btTransform& centerOfMassWorldTrans ) const
 	{
 			centerOfMassWorldTrans = 	m_centerOfMassOffset.inverse() * m_graphicsWorldTrans ;
 	}
@@ -33,8 +33,8 @@ struct	btDefaultMotionState : public btMotionState
 			m_graphicsWorldTrans = centerOfMassWorldTrans * m_centerOfMassOffset ;
 	}
 
-	
+
 
 };
 
-#endif //DEFAULT_MOTION_STATE_H
+#endif //BT_DEFAULT_MOTION_STATE_H

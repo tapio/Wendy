@@ -32,7 +32,6 @@
 #include <wendy/Path.h>
 #include <wendy/Resource.h>
 #include <wendy/Pixel.h>
-#include <wendy/XML.h>
 #include <wendy/Image.h>
 
 ///////////////////////////////////////////////////////////////////////
@@ -285,7 +284,7 @@ public:
                              const ImageCube& source,
                              unsigned int flags);
   /*! Creates a texture using the specified texture specification file.
-   *  @param[in] index The resource index within which to create the texture.
+   *  @param[in] context The OpenGL context within which to create the texture.
    *  @param[in] path The path of the texture specification file to use.
    */
   static Ref<Texture> read(Context& context, const Path& path);
@@ -328,17 +327,13 @@ typedef std::vector<TextureRef> TextureList;
 
 /*! @ingroup opengl
  */
-class TextureReader : public ResourceReader, public XML::Reader
+class TextureReader : public ResourceReader
 {
 public:
   TextureReader(Context& context);
   Ref<Texture> read(const Path& path);
 private:
-  bool onBeginElement(const String& name);
-  bool onEndElement(const String& name);
   Context& context;
-  Ref<Texture> texture;
-  ResourceInfo info;
 };
 
 ///////////////////////////////////////////////////////////////////////

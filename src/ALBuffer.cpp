@@ -24,6 +24,7 @@
 ///////////////////////////////////////////////////////////////////////
 
 #include <wendy/Config.h>
+#include <wendy/Core.h>
 
 #include <wendy/OpenAL.h>
 #include <wendy/ALContext.h>
@@ -59,8 +60,7 @@ ALenum convertToAL(BufferFormat format)
       return AL_FORMAT_STEREO16;
   }
 
-  logError("Invalid OpenAL buffer data format %u", format);
-  return 0;
+  panic("Invalid OpenAL buffer data format %u", format);
 }
 
 size_t getFormatSize(BufferFormat format)
@@ -76,8 +76,7 @@ size_t getFormatSize(BufferFormat format)
       return 4;
   }
 
-  logError("Invalid OpenAL buffer data format %u", format);
-  return 0;
+  panic("Invalid OpenAL buffer data format %u", format);
 }
 
 const char* getErrorString(int error)
@@ -209,19 +208,18 @@ Buffer& Buffer::operator = (const Buffer& source)
 ///////////////////////////////////////////////////////////////////////
 
 BufferReader::BufferReader(Context& initContext):
-  ResourceReader(initContext.getIndex()),
+  ResourceReader(initContext.getCache()),
   context(initContext)
 {
 }
 
 Ref<Buffer> BufferReader::read(const Path& path)
 {
-  if (Resource* cache = getIndex().findResource(path))
-    return dynamic_cast<Buffer*>(cache);
+  if (Resource* cached = getCache().findResource(path))
+    return dynamic_cast<Buffer*>(cached);
 
-  Path full = path;
-
-  if (!getIndex().findFile(full))
+  const Path full = getCache().findFile(path);
+  if (full.isEmpty())
   {
     logError("Could not find audio file \'%s\'", path.asString().c_str());
     return NULL;
@@ -251,7 +249,7 @@ Ref<Buffer> BufferReader::read(const Path& path)
   if (!info)
   {
     ov_clear(&file);
-    logError("Unable to retrieve Vorbis info for audio file \'%s\'",
+    logError("Failed to retrieve Vorbis info for audio file \'%s\'",
              full.asString().c_str());
     return NULL;
   }
@@ -302,7 +300,7 @@ Ref<Buffer> BufferReader::read(const Path& path)
 
   BufferData data(&samples[0], samples.size(), format, info->rate);
 
-  return Buffer::create(ResourceInfo(getIndex(), path), context, data);
+  return Buffer::create(ResourceInfo(getCache(), path), context, data);
 }
 
 ///////////////////////////////////////////////////////////////////////

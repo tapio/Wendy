@@ -157,7 +157,7 @@ public:
   const TechniqueList& getTechniques() const;
   /*! Loads a material from the specified path using the specified context, or
    *  returns the already loaded material if it's already present in the
-   *  resource index of the context.
+   *  resource cache of the context.
    *  @param[in] context The context to use.
    *  @param[in] path The path of the material.
    *  @return The loaded material, or @c NULL if an error occurred.
@@ -172,22 +172,13 @@ private:
 /*! @brief Codec for XML format render materials.
  *  @ingroup renderer
  */
-class MaterialReader : ResourceReader, public XML::Reader
+class MaterialReader : ResourceReader
 {
 public:
   MaterialReader(GL::Context& context);
   Ref<Material> read(const Path& path);
 private:
-  bool onBeginElement(const String& name);
-  bool onEndElement(const String& name);
-  bool readProgram();
   GL::Context& context;
-  Ref<Material> material;
-  ResourceInfo info;
-  Technique* currentTechnique;
-  Pass* currentPass;
-  Path programPath;
-  String programDefines;
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -195,7 +186,7 @@ private:
 /*! @brief Codec for XML format render materials.
  *  @ingroup renderer
  */
-class MaterialWriter : public XML::Writer
+class MaterialWriter
 {
 public:
   bool write(const Path& path, const Material& material);

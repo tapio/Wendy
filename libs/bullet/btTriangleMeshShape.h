@@ -4,8 +4,8 @@ Copyright (c) 2003-2009 Erwin Coumans  http://bulletphysics.org
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the use of this software.
-Permission is granted to anyone to use this software for any purpose, 
-including commercial applications, and to alter it and redistribute it freely, 
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
 subject to the following restrictions:
 
 1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
@@ -13,8 +13,8 @@ subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef TRIANGLE_MESH_SHAPE_H
-#define TRIANGLE_MESH_SHAPE_H
+#ifndef BT_TRIANGLE_MESH_SHAPE_H
+#define BT_TRIANGLE_MESH_SHAPE_H
 
 #include "btConcaveShape.h"
 #include "btStridingMeshInterface.h"
@@ -54,7 +54,7 @@ public:
 
 	virtual void	setLocalScaling(const btVector3& scaling);
 	virtual const btVector3& getLocalScaling() const;
-	
+
 	btStridingMeshInterface* getMeshInterface()
 	{
 		return m_meshInterface;
@@ -79,11 +79,11 @@ public:
 	//debugging
 	virtual const char*	getName()const {return "TRIANGLEMESH";}
 
-	
+
 
 };
 
 
 
 
-#endif //TRIANGLE_MESH_SHAPE_H
+#endif //BT_TRIANGLE_MESH_SHAPE_H

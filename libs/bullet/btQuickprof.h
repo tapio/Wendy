@@ -7,13 +7,13 @@
 **
 ***************************************************************************************************/
 
-// Credits: The Clock class was inspired by the Timer classes in 
+// Credits: The Clock class was inspired by the Timer classes in
 // Ogre (www.ogre3d.org).
 
 
 
-#ifndef QUICK_PROF_H
-#define QUICK_PROF_H
+#ifndef BT_QUICK_PROF_H
+#define BT_QUICK_PROF_H
 
 //To disable built-in profiling, please comment out next line
 #define BT_NO_PROFILE 1
@@ -27,7 +27,7 @@
 
 
 
-#define USE_BT_CLOCK 1
+//#define USE_BT_CLOCK 1
 
 #ifdef USE_BT_CLOCK
 
@@ -45,11 +45,11 @@ public:
 	/// Resets the initial reference time.
 	void reset();
 
-	/// Returns the time in ms since the last call to reset or since 
+	/// Returns the time in ms since the last call to reset or since
 	/// the btClock was created.
 	unsigned long int getTimeMilliseconds();
 
-	/// Returns the time in us since the last call to reset or since 
+	/// Returns the time in us since the last call to reset or since
 	/// the Clock was created.
 	unsigned long int getTimeMicroseconds();
 private:
@@ -82,7 +82,8 @@ public:
 	const char *	Get_Name( void )				{ return Name; }
 	int				Get_Total_Calls( void )		{ return TotalCalls; }
 	float				Get_Total_Time( void )		{ return TotalTime; }
-
+	void*			GetUserPointer() const {return m_userPtr;}
+	void			SetUserPointer(void* ptr) { m_userPtr = ptr;}
 protected:
 
 	const char *	Name;
@@ -94,6 +95,7 @@ protected:
 	CProfileNode *	Parent;
 	CProfileNode *	Child;
 	CProfileNode *	Sibling;
+	void*	m_userPtr;
 };
 
 ///An iterator to navigate through the tree
@@ -115,15 +117,20 @@ public:
 	int				Get_Current_Total_Calls( void )	{ return CurrentChild->Get_Total_Calls(); }
 	float				Get_Current_Total_Time( void )	{ return CurrentChild->Get_Total_Time(); }
 
+	void*	Get_Current_UserPointer( void )			{ return CurrentChild->GetUserPointer(); }
+	void	Set_Current_UserPointer(void* ptr) {CurrentChild->SetUserPointer(ptr);}
 	// Access the current parent
 	const char *	Get_Current_Parent_Name( void )			{ return CurrentParent->Get_Name(); }
 	int				Get_Current_Parent_Total_Calls( void )	{ return CurrentParent->Get_Total_Calls(); }
 	float				Get_Current_Parent_Total_Time( void )	{ return CurrentParent->Get_Total_Time(); }
 
+
+
 protected:
 
 	CProfileNode *	CurrentParent;
 	CProfileNode *	CurrentChild;
+
 
 	CProfileIterator( CProfileNode * start );
 	friend	class		CProfileManager;
@@ -146,10 +153,10 @@ public:
 	static	int						Get_Frame_Count_Since_Reset( void )		{ return FrameCounter; }
 	static	float						Get_Time_Since_Reset( void );
 
-	static	CProfileIterator *	Get_Iterator( void )	
-	{ 
-		
-		return new CProfileIterator( &Root ); 
+	static	CProfileIterator *	Get_Iterator( void )
+	{
+
+		return new CProfileIterator( &Root );
 	}
 	static	void						Release_Iterator( CProfileIterator * iterator ) { delete ( iterator); }
 
@@ -170,13 +177,13 @@ private:
 class	CProfileSample {
 public:
 	CProfileSample( const char * name )
-	{ 
-		CProfileManager::Start_Profile( name ); 
+	{
+		CProfileManager::Start_Profile( name );
 	}
 
-	~CProfileSample( void )					
-	{ 
-		CProfileManager::Stop_Profile(); 
+	~CProfileSample( void )
+	{
+		CProfileManager::Stop_Profile();
 	}
 };
 
@@ -191,6 +198,6 @@ public:
 
 
 
-#endif //QUICK_PROF_H
+#endif //BT_QUICK_PROF_H
 
 

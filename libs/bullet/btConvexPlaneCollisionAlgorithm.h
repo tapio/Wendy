@@ -13,8 +13,8 @@ subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef CONVEX_PLANE_COLLISION_ALGORITHM_H
-#define CONVEX_PLANE_COLLISION_ALGORITHM_H
+#ifndef BT_CONVEX_PLANE_COLLISION_ALGORITHM_H
+#define BT_CONVEX_PLANE_COLLISION_ALGORITHM_H
 
 #include "btCollisionAlgorithm.h"
 #include "btBroadphaseProxy.h"
@@ -58,13 +58,13 @@ public:
 	{
 		int	m_numPerturbationIterations;
 		int m_minimumPointsPerturbationThreshold;
-			
-		CreateFunc() 
+
+		CreateFunc()
 			: m_numPerturbationIterations(1),
-			m_minimumPointsPerturbationThreshold(1)
+			m_minimumPointsPerturbationThreshold(0)
 		{
 		}
-		
+
 		virtual	btCollisionAlgorithm* CreateCollisionAlgorithm(btCollisionAlgorithmConstructionInfo& ci, btCollisionObject* body0,btCollisionObject* body1)
 		{
 			void* mem = ci.m_dispatcher1->allocateCollisionAlgorithm(sizeof(btConvexPlaneCollisionAlgorithm));
@@ -80,5 +80,5 @@ public:
 
 };
 
-#endif //CONVEX_PLANE_COLLISION_ALGORITHM_H
+#endif //BT_CONVEX_PLANE_COLLISION_ALGORITHM_H
 

@@ -8,14 +8,15 @@ namespace
 
 using namespace wendy;
 
-class Test
+class Test : public Trackable
 {
 public:
   ~Test();
   bool init();
   void run();
 private:
-  ResourceIndex index;
+  void onContextResized(unsigned int width, unsigned int height);
+  ResourceCache cache;
   Ref<render::SharedProgramState> state;
   Ptr<render::GeometryPool> pool;
   Ref<render::Material> material;
@@ -36,16 +37,17 @@ bool Test::init()
   if (!mediaPath)
     mediaPath = WENDY_MEDIA_DIR;
 
-  if (!index.addSearchPath(Path(mediaPath)))
+  if (!cache.addSearchPath(Path(mediaPath)))
     return false;
 
-  if (!GL::Context::createSingleton(index, GL::WindowConfig("2D Sprite Test")))
+  if (!GL::Context::createSingleton(cache, GL::WindowConfig("2D Sprite Test")))
   {
     logError("Failed to create OpenGL context");
     return false;
   }
 
   GL::Context* context = GL::Context::getSingleton();
+  context->getResizedSignal().connect(*this, &Test::onContextResized);
 
   state = new render::SharedProgramState();
   state->reserveSupported(*context);
@@ -102,6 +104,12 @@ void Test::run()
     }
   }
   while (context.update());
+}
+
+void Test::onContextResized(unsigned int width, unsigned int height)
+{
+  GL::Context* context = GL::Context::getSingleton();
+  context->setViewportArea(Recti(0, 0, width, height));
 }
 
 } /*namespace*/

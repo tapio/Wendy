@@ -57,21 +57,21 @@ String escapeString(const SQChar* string)
   for (const SQChar* c = string;  *c;  c++)
   {
     if (*c == '\t')
-      result.append("\\t");
+      result += "\\t";
     else if (*c == '\a')
-      result.append("\\a");
+      result += "\\a";
     else if (*c == '\b')
-      result.append("\\b");
+      result += "\\b";
     else if (*c == '\n')
-      result.append("\\n");
+      result += "\\n";
     else if (*c == '\r')
-      result.append("\\r");
+      result += "\\r";
     else if (*c == '\v')
-      result.append("\\v");
+      result += "\\v";
     else if (*c == '\f')
-      result.append("\\f");
+      result += "\\f";
     else
-      result.append(1, *c);
+      result += *c;
   }
 
   return result;
@@ -234,8 +234,8 @@ void logErrorCallStack(HSQUIRRELVM vm)
 
 ///////////////////////////////////////////////////////////////////////
 
-VM::VM(ResourceIndex& initIndex):
-  index(initIndex),
+VM::VM(ResourceCache& initCache):
+  cache(initCache),
   vm(NULL)
 {
   vm = sq_open(1024);
@@ -261,7 +261,7 @@ VM::~VM()
 bool VM::execute(const Path& path)
 {
   std::ifstream stream;
-  if (!index.openFile(stream, path))
+  if (!cache.openFile(stream, path))
     return false;
 
   stream.seekg(0, std::ios::end);
@@ -331,9 +331,9 @@ Table VM::getRegistryTable()
   return table;
 }
 
-ResourceIndex& VM::getIndex() const
+ResourceCache& VM::getCache() const
 {
-  return index;
+  return cache;
 }
 
 void VM::onLogMessage(HSQUIRRELVM vm, const SQChar* format, ...)
@@ -378,7 +378,7 @@ void VM::onCompilerError(HSQUIRRELVM vm,
                          SQInteger line,
                          SQInteger column)
 {
-  logError("%s:%i:%i: %s", source, line, column, description);
+  logError("%s:%i:%i: %s", source, int(line), int(column), description);
 }
 
 SQInteger VM::onRuntimeError(HSQUIRRELVM vm)

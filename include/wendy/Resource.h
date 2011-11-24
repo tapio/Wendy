@@ -36,15 +36,15 @@ namespace wendy
 
 ///////////////////////////////////////////////////////////////////////
 
-class ResourceIndex;
+class ResourceCache;
 
 ///////////////////////////////////////////////////////////////////////
 
 class ResourceInfo
 {
 public:
-  ResourceInfo(ResourceIndex& index, const Path& path = Path());
-  ResourceIndex& index;
+  ResourceInfo(ResourceCache& cache, const Path& path = Path());
+  ResourceCache& cache;
   Path path;
 };
 
@@ -56,25 +56,26 @@ public:
   Resource(const ResourceInfo& info);
   Resource(const Resource& source);
   virtual ~Resource();
+  Resource& operator = (const Resource& source);
   const Path& getPath() const;
-  ResourceIndex& getIndex() const;
+  ResourceCache& getCache() const;
 public:
-  ResourceIndex& index;
+  ResourceCache& cache;
   Path path;
 };
 
 ///////////////////////////////////////////////////////////////////////
 
-class ResourceIndex
+class ResourceCache
 {
   friend class Resource;
 public:
-  ~ResourceIndex();
+  ~ResourceCache();
   bool addSearchPath(const Path& path);
   void removeSearchPath(const Path& path);
   Resource* findResource(const Path& path) const;
   bool openFile(std::ifstream& stream, const Path& path) const;
-  bool findFile(Path& path) const;
+  Path findFile(const Path& path) const;
   const PathList& getSearchPaths() const;
 private:
   typedef std::vector<Resource*> List;
@@ -87,10 +88,10 @@ private:
 class ResourceReader
 {
 public:
-  ResourceReader(ResourceIndex& index);
-  ResourceIndex& getIndex() const;
+  ResourceReader(ResourceCache& cache);
+  ResourceCache& getCache() const;
 private:
-  ResourceIndex& index;
+  ResourceCache& cache;
 };
 
 ///////////////////////////////////////////////////////////////////////

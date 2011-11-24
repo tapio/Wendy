@@ -31,10 +31,11 @@
 #include <wendy/Path.h>
 #include <wendy/Pixel.h>
 #include <wendy/Resource.h>
-#include <wendy/XML.h>
 #include <wendy/Image.h>
 
 #include <cstring>
+
+#include <pugixml.hpp>
 
 #include <png.h>
 
@@ -165,8 +166,8 @@ Image::Image(const ResourceInfo& info,
       unsigned int size = format.getSize();
       data.resize(width * height * depth * size);
 
-      Byte* target = data;
-      const Byte* source = (const Byte*) initData;
+      uint8* target = data;
+      const uint8* source = (const uint8*) initData;
 
       for (unsigned int z = 0;  z < depth;  z++)
       {
@@ -180,7 +181,7 @@ Image::Image(const ResourceInfo& info,
     }
     else
     {
-      data.copyFrom((const Byte*) initData,
+      data.copyFrom((const uint8*) initData,
                     width * height * depth * format.getSize());
     }
   }
@@ -287,8 +288,8 @@ void Image::flipVertical()
   {
     for (unsigned int y = 0;  y < height;  y++)
     {
-      const Byte* source = data + (z * height + y) * width * pixelSize;
-      Byte* target = scratch + ((z * height + y + 1) * width - 1) * pixelSize;
+      const uint8* source = data + (z * height + y) * width * pixelSize;
+      uint8* target = scratch + ((z * height + y + 1) * width - 1) * pixelSize;
 
       while (source < target)
       {
@@ -403,23 +404,23 @@ Ref<Image> Image::getArea(const Recti& area)
 
   const unsigned int pixelSize = format.getSize();
 
-  ImageRef result = new Image(ResourceInfo(getIndex()),
+  ImageRef result = new Image(ResourceInfo(getCache()),
                               format,
                               targetArea.size.x, targetArea.size.y);
 
   for (int y = 0;  y < targetArea.size.y;  y++)
   {
-    const Byte* source = data + ((y + targetArea.position.y) * width + targetArea.position.x) * pixelSize;
-    Byte* target = result->data + y * result->width * pixelSize;
+    const uint8* source = data + ((y + targetArea.position.y) * width + targetArea.position.x) * pixelSize;
+    uint8* target = result->data + y * result->width * pixelSize;
     memcpy(target, source, result->width * pixelSize);
   }
 
   return result;
 }
 
-Ref<Image> Image::read(ResourceIndex& index, const Path& path)
+Ref<Image> Image::read(ResourceCache& cache, const Path& path)
 {
-  ImageReader reader(index);
+  ImageReader reader(cache);
   return reader.read(path);
 }
 
@@ -507,28 +508,28 @@ bool ImageCube::hasSameSize() const
   return true;
 }
 
-Ref<ImageCube> ImageCube::read(ResourceIndex& index, const Path& path)
+Ref<ImageCube> ImageCube::read(ResourceCache& cache, const Path& path)
 {
-  ImageCubeReader reader(index);
+  ImageCubeReader reader(cache);
   return reader.read(path);
 }
 
 ///////////////////////////////////////////////////////////////////////
 
-ImageReader::ImageReader(ResourceIndex& index):
-  ResourceReader(index)
+ImageReader::ImageReader(ResourceCache& cache):
+  ResourceReader(cache)
 {
 }
 
 Ref<Image> ImageReader::read(const Path& path)
 {
-  if (Resource* cache = getIndex().findResource(path))
-    return dynamic_cast<Image*>(cache);
+  if (Resource* cached = getCache().findResource(path))
+    return dynamic_cast<Image*>(cached);
 
-  ResourceInfo info(getIndex(), path);
+  ResourceInfo info(getCache(), path);
 
   std::ifstream stream;
-  if (!getIndex().openFile(stream, info.path))
+  if (!getCache().openFile(stream, info.path))
     return NULL;
 
   // Check if file is valid
@@ -537,7 +538,7 @@ Ref<Image> ImageReader::read(const Path& path)
 
     if (!stream.read((char*) header, sizeof(header)))
     {
-      logError("Unable to read PNG file header");
+      logError("Failed to read PNG file header");
       return NULL;
     }
 
@@ -616,7 +617,7 @@ Ref<Image> ImageReader::read(const Path& path)
 
     png_bytepp rows = png_get_rows(context, pngInfo);
 
-    Byte* data = (Byte*) result->getPixels();
+    uint8* data = (uint8*) result->getPixels();
 
     for (unsigned int i = 0;  i < height;  i++)
       std::memcpy(data + (height - i - 1) * size, rows[i], size);
@@ -652,7 +653,7 @@ bool ImageWriter::write(const Path& path, const Image& image)
                                                 writeWarningPNG);
   if (!context)
   {
-    logError("Unable to create write struct");
+    logError("Failed to create write struct");
     return false;
   }
 
@@ -663,7 +664,7 @@ bool ImageWriter::write(const Path& path, const Image& image)
   if (!info)
   {
     png_destroy_write_struct(&context, png_infopp(NULL));
-    logError("Unable to create info struct");
+    logError("Failed to create info struct");
     return false;
   }
 
@@ -672,7 +673,7 @@ bool ImageWriter::write(const Path& path, const Image& image)
   if (!getEncodeConversionFormatPNG(format, image.getFormat()))
   {
     png_destroy_write_struct(&context, &info);
-    logError("Unable to encode image format");
+    logError("Failed to encode image format");
     return false;
   }
 
@@ -686,7 +687,7 @@ bool ImageWriter::write(const Path& path, const Image& image)
                PNG_COMPRESSION_TYPE_DEFAULT,
                PNG_FILTER_TYPE_DEFAULT);
 
-  const Byte* data = (const Byte*) image.getPixels();
+  const uint8* data = (const uint8*) image.getPixels();
 
   const unsigned int pixelSize = image.getFormat().getSize();
 
@@ -709,119 +710,87 @@ bool ImageWriter::write(const Path& path, const Image& image)
 
 ///////////////////////////////////////////////////////////////////////
 
-ImageCubeReader::ImageCubeReader(ResourceIndex& index):
-  ResourceReader(index)
+ImageCubeReader::ImageCubeReader(ResourceCache& cache):
+  ResourceReader(cache)
 {
 }
 
 Ref<ImageCube> ImageCubeReader::read(const Path& path)
 {
-  if (Resource* cache = getIndex().findResource(path))
-    return dynamic_cast<ImageCube*>(cache);
-
-  ResourceInfo info(getIndex(), path);
+  if (Resource* cached = getCache().findResource(path))
+    return dynamic_cast<ImageCube*>(cached);
 
   std::ifstream stream;
-  if (!getIndex().openFile(stream, info.path))
+  if (!getCache().openFile(stream, path))
     return NULL;
 
-  cube = new ImageCube(info);
+  pugi::xml_document document;
 
-  if (!XML::Reader::read(stream))
+  const pugi::xml_parse_result result = document.load(stream);
+  if (!result)
   {
-    cube = NULL;
+    logError("Failed to load image cube \'%s\': %s",
+             path.asString().c_str(),
+             result.description());
     return NULL;
   }
 
-  return cube.detachObject();
-}
-
-bool ImageCubeReader::onBeginElement(const String& name)
-{
-  if (name == "image-cube")
+  pugi::xml_node root = document.child("image-cube");
+  if (!root || root.attribute("version").as_uint() != IMAGE_CUBE_XML_VERSION)
   {
-    const unsigned int version = readInteger("version");
-    if (version != IMAGE_CUBE_XML_VERSION)
+    logError("Image cube file format mismatch in \'%s\'",
+             path.asString().c_str());
+    return NULL;
+  }
+
+  // NOTE: Keep these arrays in the same order, for added happiness
+
+  const char* names[6] =
+  {
+    "positive-x",
+    "negative-x",
+    "positive-y",
+    "negative-y",
+    "positive-z",
+    "negative-z",
+  };
+
+  const CubeFace sides[6] =
+  {
+    CUBE_POSITIVE_X,
+    CUBE_NEGATIVE_X,
+    CUBE_POSITIVE_Y,
+    CUBE_NEGATIVE_Y,
+    CUBE_POSITIVE_Z,
+    CUBE_NEGATIVE_Z,
+  };
+
+  Ref<ImageCube> cube = new ImageCube(ResourceInfo(getCache(), path));
+
+  for (size_t i = 0;  i < 6;  i++)
+  {
+    const Path imagePath(root.child(names[i]).attribute("path").value());
+    if (imagePath.isEmpty())
     {
-      logError("Image cube specification XML format version mismatch");
-      return false;
+      logError("No path specified for %s side in image cube \'%s\'",
+               names[i],
+               path.asString().c_str());
+      return NULL;
     }
 
-    return true;
-  }
-
-  if (name == "positive-x")
-  {
-    ImageReader reader(getIndex());
-    ImageRef image = reader.read(Path(readString("path")));
+    Ref<Image> image = Image::read(getCache(), imagePath);
     if (!image)
-      return false;
+    {
+      logError("Failed to load side %s of image cube \'%s\'",
+               names[i],
+               path.asString().c_str());
+      return NULL;
+    }
 
-    cube->images[CUBE_POSITIVE_X] = image;
-    return true;
+    cube->images[sides[i]] = image;
   }
 
-  if (name == "negative-x")
-  {
-    ImageReader reader(getIndex());
-    ImageRef image = reader.read(Path(readString("path")));
-    if (!image)
-      return false;
-
-    cube->images[CUBE_NEGATIVE_X] = image;
-    return true;
-  }
-
-  if (name == "positive-y")
-  {
-    ImageReader reader(getIndex());
-    ImageRef image = reader.read(Path(readString("path")));
-    if (!image)
-      return false;
-
-    cube->images[CUBE_POSITIVE_Y] = image;
-    return true;
-  }
-
-  if (name == "negative-y")
-  {
-    ImageReader reader(getIndex());
-    ImageRef image = reader.read(Path(readString("path")));
-    if (!image)
-      return false;
-
-    cube->images[CUBE_NEGATIVE_Y] = image;
-    return true;
-  }
-
-  if (name == "positive-z")
-  {
-    ImageReader reader(getIndex());
-    ImageRef image = reader.read(Path(readString("path")));
-    if (!image)
-      return false;
-
-    cube->images[CUBE_POSITIVE_Z] = image;
-    return true;
-  }
-
-  if (name == "negative-z")
-  {
-    ImageReader reader(getIndex());
-    ImageRef image = reader.read(Path(readString("path")));
-    if (!image)
-      return false;
-
-    cube->images[CUBE_NEGATIVE_Z] = image;
-    return true;
-  }
-
-  return true;
-}
-
-bool ImageCubeReader::onEndElement(const String& name)
-{
-  return true;
+  return cube;
 }
 
 ///////////////////////////////////////////////////////////////////////
