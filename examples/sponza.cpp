@@ -112,7 +112,7 @@ bool Demo::init()
   dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
   dynamicsWorld->setGravity(btVector3(0,0,0));
 
-  sponzaShape = new btStaticPlaneShape(btVector3(0,1,0), 0);
+  sponzaShape = new btBvhTriangleMeshShape(model->getCollisionMesh(), true);
   {
     btTransform transform;
     transform.setIdentity();

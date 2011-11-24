@@ -100,7 +100,7 @@ const GL::IndexBuffer& Model::getIndexBuffer() const
   return *indexBuffer;
 }
 
-const CollisionMesh* Model::getCollisionMesh() const
+CollisionMesh* Model::getCollisionMesh()
 {
   return &(*collisionMesh);
 }

@@ -75,7 +75,7 @@ public:
   const GL::IndexBuffer& getIndexBuffer() const;
   /*! @return The collision mesh.
    */
-  const CollisionMesh* getCollisionMesh() const;
+  CollisionMesh* getCollisionMesh();
   /*! Creates a model from the specified mesh data.
    *  @param[in] info The resource info for the texture.
    *  @param[in] context The OpenGL context within which to create the texture.
