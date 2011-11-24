@@ -31,6 +31,14 @@ private:
   Timer timer;
   Time currentTime;
   ivec2 lastPosition;
+  Ptr<btCollisionShape> sponzaShape;
+  Ptr<btCollisionShape> cameraShape;
+  Ptr<btRigidBody> cameraBody;
+  Ptr<btBroadphaseInterface> broadphase;
+  Ptr<btCollisionDispatcher> dispatcher;
+  Ptr<btConstraintSolver> solver;
+  Ptr<btDefaultCollisionConfiguration> collisionConfiguration;
+  Ptr<btDiscreteDynamicsWorld> dynamicsWorld;
   bool quitting;
 };
 
@@ -93,6 +101,44 @@ bool Demo::init()
   modelNode->setModel(model);
   graph.addRootNode(*modelNode);
 
+  // Collision configuration contains default setup for memory, collision setup
+  collisionConfiguration = new btDefaultCollisionConfiguration();
+  // Use the default collision dispatcher. For parallel processing you can use a diffent dispatcher (see Extras/BulletMultiThreaded)
+  dispatcher = new btCollisionDispatcher(collisionConfiguration);
+  broadphase = new btDbvtBroadphase();
+  // The default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)
+  btSequentialImpulseConstraintSolver* sol = new btSequentialImpulseConstraintSolver;
+  solver = sol;
+  dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
+  dynamicsWorld->setGravity(btVector3(0,0,0));
+
+  sponzaShape = new btStaticPlaneShape(btVector3(0,1,0), 0);
+  {
+    btTransform transform;
+    transform.setIdentity();
+    btScalar mass(0.); // Static object
+    btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, NULL, sponzaShape);
+    btRigidBody* body = new btRigidBody(rbInfo);
+    dynamicsWorld->addRigidBody(body);
+  }
+
+  cameraShape = new btSphereShape(btScalar(3.));
+  {
+    btTransform transform;
+    transform.setIdentity();
+    transform.setOrigin(btVector3(0.f, 10.f, 0.f));
+
+    btScalar mass(1.f);
+    btVector3 localInertia(0,0,0);
+    cameraShape->calculateLocalInertia(mass, localInertia);
+
+    btDefaultMotionState* motionState = new btDefaultMotionState(transform);
+    btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, motionState, cameraShape, localInertia);
+    cameraBody = new btRigidBody(rbInfo);
+    cameraBody->setSleepingThresholds(0., 0.);
+    dynamicsWorld->addRigidBody(cameraBody);
+  }
+
   camera = new render::Camera();
   camera->setFOV(60.f);
   camera->setNearZ(0.9f);
@@ -123,7 +169,7 @@ bool Demo::init()
   }
 
   controller.setSpeed(25.f);
-  controller.setPosition(vec3(0.f, 10.f, 0.f));
+  controller.setPosition(bullet::convert(cameraBody->getCenterOfMassPosition()));
 
   return true;
 }
@@ -142,9 +188,18 @@ void Demo::run()
     const Time deltaTime = timer.getTime() - currentTime;
     currentTime += deltaTime;
 
-    lightNode->setLocalPosition(vec3(0.f, sinf((float) currentTime) * 40.f + 45.f, 0.f));
-
+    // Calculate and send current velocity from controller to Bullet
+    vec3 p0 = controller.getTransform().position;
     controller.update(deltaTime);
+    vec3 p1 = controller.getTransform().position;
+    vec3 vel = float(1.0f / deltaTime) * (p1 - p0);
+    cameraBody->setLinearVelocity(bullet::convert(vel));
+    // Simulate
+    dynamicsWorld->stepSimulation(deltaTime);
+    // Set controller position according to simualtion results
+    controller.setPosition(bullet::convert(cameraBody->getCenterOfMassPosition()));
+
+    lightNode->setLocalPosition(vec3(0.f, sinf((float) currentTime) * 40.f + 45.f, 0.f));
     cameraNode->setLocalTransform(controller.getTransform());
 
     graph.update();
