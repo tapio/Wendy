@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////
-// Wendy core library
-// Copyright (c) 2006 Camilla Berglund <elmindreda@elmindreda.org>
+// Wendy debug interface
+// Copyright (c) 2011 Camilla Berglund <elmindreda@elmindreda.org>
 //
 // This software is provided 'as-is', without any express or implied
 // warranty. In no event will the authors be held liable for any
@@ -22,81 +22,54 @@
 //     distribution.
 //
 ///////////////////////////////////////////////////////////////////////
-#ifndef WENDY_RESOURCE_H
-#define WENDY_RESOURCE_H
-///////////////////////////////////////////////////////////////////////
-
-#include <fstream>
-
+#ifndef WENDY_DEBUGUI_H
+#define WENDY_DEBUGUI_H
 ///////////////////////////////////////////////////////////////////////
 
 namespace wendy
 {
+  namespace debug
+  {
 
 ///////////////////////////////////////////////////////////////////////
 
-class ResourceCache;
-
-///////////////////////////////////////////////////////////////////////
-
-class ResourceInfo
+class Panel : public UI::Widget
 {
 public:
-  ResourceInfo(ResourceCache& cache, const Path& path = Path());
-  ResourceCache& cache;
-  Path path;
-};
-
-///////////////////////////////////////////////////////////////////////
-
-class Resource : public RefObject
-{
-public:
-  Resource(const ResourceInfo& info);
-  Resource(const Resource& source);
-  virtual ~Resource();
-  Resource& operator = (const Resource& source);
-  const Path& getPath() const;
-  ResourceCache& getCache() const;
-public:
-  ResourceCache& cache;
-  Path path;
-};
-
-///////////////////////////////////////////////////////////////////////
-
-class ResourceCache
-{
-  friend class Resource;
-public:
-  ~ResourceCache();
-  bool addSearchPath(const Path& path);
-  void removeSearchPath(const Path& path);
-  Resource* findResource(const Path& path) const;
-  bool openFile(std::ifstream& stream, const Path& path) const;
-  Path findFile(const Path& path) const;
-  const PathList& getSearchPaths() const;
+  Panel(UI::Layer& layer);
 private:
-  typedef std::vector<Resource*> List;
-  PathList paths;
-  List resources;
+  void draw() const;
 };
 
 ///////////////////////////////////////////////////////////////////////
 
-class ResourceReader
+class Interface : public UI::Layer
 {
 public:
-  ResourceReader(ResourceCache& cache);
-  ResourceCache& getCache() const;
+  Interface(input::Context& context, UI::Drawer& drawer);
+  void update();
+  void draw();
 private:
-  ResourceCache& cache;
+  enum
+  {
+    LABEL_FRAMERATE,
+    LABEL_STATECHANGES,
+    LABEL_OPERATIONS,
+    LABEL_VERTICES,
+    LABEL_POINTS,
+    LABEL_LINES,
+    LABEL_TRIANGLES,
+    LABEL_COUNT,
+  };
+  Panel* root;
+  UI::Label* labels[LABEL_COUNT];
 };
 
 ///////////////////////////////////////////////////////////////////////
 
+  } /*namespace debug*/
 } /*namespace wendy*/
 
 ///////////////////////////////////////////////////////////////////////
-#endif /*WENDY_RESOURCE_H*/
+#endif /*WENDY_DEBUGUI_H*/
 ///////////////////////////////////////////////////////////////////////

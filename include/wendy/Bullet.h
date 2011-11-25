@@ -26,11 +26,6 @@
 #define WENDY_BULLET_H
 ///////////////////////////////////////////////////////////////////////
 
-#include <wendy/Core.h>
-#include <wendy/Transform.h>
-#include <wendy/Path.h>
-#include <wendy/Resource.h>
-
 #include <btBulletCollisionCommon.h>
 #include <btBulletDynamicsCommon.h>
 
@@ -93,6 +88,23 @@ class BvhMeshShapeWriter
 {
 public:
   bool write(const Path& path, const btBvhTriangleMeshShape& shape);
+};
+
+///////////////////////////////////////////////////////////////////////
+
+/*! @ingroup bullet
+ */
+class AvatarSweepCallback : public btCollisionWorld::ConvexResultCallback
+{
+public:
+  AvatarSweepCallback(const btCollisionObject* self);
+  bool needsCollision(btBroadphaseProxy* proxy) const;
+  btScalar addSingleResult(btCollisionWorld::LocalConvexResult& result,
+                           bool normalInWorldSpace);
+  btVector3 m_hitNormalWorld;
+  btCollisionObject* m_hitCollisionObject;
+private:
+  const btCollisionObject* self;
 };
 
 ///////////////////////////////////////////////////////////////////////

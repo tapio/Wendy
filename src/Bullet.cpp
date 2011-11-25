@@ -24,9 +24,13 @@
 ///////////////////////////////////////////////////////////////////////
 
 #include <wendy/Config.h>
+#include <wendy/Core.h>
+#include <wendy/Transform.h>
+#include <wendy/Path.h>
+#include <wendy/Resource.h>
+#include <wendy/Mesh.h>
 
 #include <wendy/Bullet.h>
-#include <wendy/Mesh.h>
 
 #include <btBulletWorldImporter.h>
 
@@ -77,21 +81,31 @@ btVector3 convert(const vec3& vector)
   return btVector3(vector.x, vector.y, vector.z);
 }
 
-btTriangleMesh* convert(const Mesh& mesh)
+btTriangleMesh* convert(const Mesh& data)
 {
-  btTriangleMesh* cmesh = new btTriangleMesh(true, false);
-  for (size_t i = 0;  i < mesh.geometries.size();  i++)
+  btTriangleMesh* mesh;
+
+  if (data.vertices.size() > 65536)
+    btTriangleMesh* mesh = new btTriangleMesh(true);
+  else
+    btTriangleMesh* mesh = new btTriangleMesh(false);
+
+  for (Mesh::GeometryList::const_iterator g = data.geometries.begin();
+       g != data.geometries.end();
+       g++)
   {
-    for (size_t j = 0;  j < mesh.geometries[i].triangles.size();  j++)
+    for (MeshGeometry::TriangleList::const_iterator t = g->triangles.begin();
+         t != g->triangles.end();
+         t++)
     {
-      const MeshTriangle& triangle = mesh.geometries[i].triangles[j];
-      btVector3 v0 = bullet::convert(mesh.vertices[triangle.indices[0]].position);
-      btVector3 v1 = bullet::convert(mesh.vertices[triangle.indices[1]].position);
-      btVector3 v2 = bullet::convert(mesh.vertices[triangle.indices[2]].position);
-      cmesh->addTriangle(v0, v1, v2);
+      mesh->addTriangle(convert(data.vertices[t->indices[0]].position),
+                        convert(data.vertices[t->indices[1]].position),
+                        convert(data.vertices[t->indices[2]].position),
+                        true);
     }
   }
-  return cmesh;
+
+  return mesh;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -156,6 +170,40 @@ bool BvhMeshShapeWriter::write(const Path& path, const btBvhTriangleMeshShape& s
 
   stream.close();
   return true;
+}
+
+///////////////////////////////////////////////////////////////////////
+
+AvatarSweepCallback::AvatarSweepCallback(const btCollisionObject* initSelf):
+  self(initSelf)
+{
+}
+
+bool AvatarSweepCallback::needsCollision(btBroadphaseProxy* proxy) const
+{
+  if (!ConvexResultCallback::needsCollision(proxy))
+    return false;
+
+  if (proxy->m_clientObject == self)
+    return false;
+
+  return true;
+}
+
+btScalar AvatarSweepCallback::addSingleResult(btCollisionWorld::LocalConvexResult& result,
+                                              bool normalInWorldSpace)
+{
+  m_hitCollisionObject = result.m_hitCollisionObject;
+
+  if (normalInWorldSpace)
+    m_hitNormalWorld = result.m_hitNormalLocal;
+  else
+  {
+    const btTransform& transform = m_hitCollisionObject->getWorldTransform();
+    m_hitNormalWorld = transform.getBasis() * result.m_hitNormalLocal;
+  }
+
+  return m_closestHitFraction = result.m_hitFraction;
 }
 
 ///////////////////////////////////////////////////////////////////////
