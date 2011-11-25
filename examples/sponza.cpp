@@ -14,12 +14,7 @@ struct Entity {
   scene::ModelNode* model;
   void syncModelFromBody()
   {
-    Transform3 trans = bullet::convert(body->getCenterOfMassTransform());
-    // HACK: Do a translation since the model is not centered to center of mass
-    vec3 normal(0.f, -1.f, 0.f);
-    trans.rotateVector(normal);
-    trans.position += normal * 3.5f;
-    model->setLocalTransform(trans);
+    model->setLocalTransform(bullet::convert(body->getCenterOfMassTransform()));
   }
 };
 
