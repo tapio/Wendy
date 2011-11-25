@@ -151,13 +151,21 @@ bool Demo::init()
   btVector3 vaseLocalInertia(0,0,0);
   vaseShape->calculateLocalInertia(vaseMass, vaseLocalInertia);
 
-  for (int i = 0; i < 8; ++i)
+  const int numVases = 6;
+  float vasePos[numVases * 2] = {
+    -61.5f, -21.f,
+    -25.0f, -21.f,
+     12.0f, -21.f,
+     48.5f,  14.f,
+     12.0f,  14.f,
+    -25.0f,  14.f
+  };
+  for (int i = 0; i < numVases; ++i)
   {
     Entity entity;
     entity.model = new scene::ModelNode();
     entity.model->setModel(model);
-    const float step = 15.f;
-    entity.model->setLocalPosition(vec3(-4*step + i*step, 4.f, 0.f));
+    entity.model->setLocalPosition(vec3(vasePos[i*2], 3.7f, vasePos[i*2+1]));
     graph.addRootNode(*entity.model);
 
     btTransform transform;
