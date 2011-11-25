@@ -134,7 +134,7 @@ bool Demo::init()
 
   MeshReader reader(cache);
   Ref<Mesh> sponzaObj = reader.read(Path("sponza.obj"));
-  sponzaShape = new btBvhTriangleMeshShape(bullet::convert(*sponzaObj), true);
+  sponzaShape = new btBvhTriangleMeshShape(bullet::convert(*sponzaObj, false), true);
   {
     btTransform transform;
     transform.setIdentity();

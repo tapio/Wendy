@@ -67,7 +67,7 @@ btVector3 convert(const vec3& vector);
 
 /*! @ingroup bullet
  */
-btTriangleMesh* convert(const Mesh& mesh);
+btTriangleMesh* convert(const Mesh& mesh, bool removeDuplicateVertices = true);
 
 ///////////////////////////////////////////////////////////////////////
 
