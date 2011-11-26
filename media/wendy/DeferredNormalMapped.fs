@@ -17,6 +17,8 @@ void main()
   vec3 T = normalize(gTangent);
   vec3 B = normalize(gBinormal);
   mat3 TBN = transpose(mat3(T,B,N));
+  // Ok, matrix multiplication per fragment in a waste,
+  // but allows us to leave the light shaders untouched.
   vec3 bump = normalize(n * TBN);
 
   gl_FragData[0] = texture2D(colormap, gTexCoord);
