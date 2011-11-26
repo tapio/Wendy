@@ -11,13 +11,13 @@ in vec3 gBinormal;
 void main()
 {
   vec4 ns = texture2D(normalmap, gTexCoord);
-  vec3 n = normalize(2.0 * ns.xyz - 1.0);
+  vec3 n = normalize(ns.xyz - 0.5f);
 
   vec3 N = normalize(gNormal);
   vec3 T = normalize(gTangent);
   vec3 B = normalize(gBinormal);
   mat3 TBN = transpose(mat3(T,B,N));
-  // Ok, matrix multiplication per fragment in a waste,
+  // Ok, matrix multiplication per fragment is a waste,
   // but allows us to leave the light shaders untouched.
   vec3 bump = normalize(n * TBN);
 
