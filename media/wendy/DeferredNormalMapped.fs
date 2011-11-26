@@ -16,7 +16,7 @@ void main()
   vec3 N = normalize(gNormal);
   vec3 T = normalize(gTangent);
   vec3 B = normalize(gBinormal);
-  mat3 TBN = mat3(T,B,N);
+  mat3 TBN = transpose(mat3(T,B,N));
   vec3 bump = normalize(n * TBN);
 
   gl_FragData[0] = texture2D(colormap, gTexCoord);
