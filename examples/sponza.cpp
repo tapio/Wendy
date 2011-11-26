@@ -129,10 +129,11 @@ bool Demo::init()
   dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
   dynamicsWorld->setGravity(btVector3(0,-10.f,0));
 
-  MeshReader reader(cache);
-  Ref<Mesh> sponzaObj = reader.read(Path("sponza.obj"));
-  sponzaShape = new btBvhTriangleMeshShape(bullet::convert(*sponzaObj, false), true);
   {
+    MeshReader reader(cache);
+    Ref<Mesh> sponzaObj = reader.read(Path("sponza.obj"));
+    sponzaShape = new btBvhTriangleMeshShape(bullet::convert(*sponzaObj, false), true);
+
     btTransform transform;
     transform.setIdentity();
     btScalar mass(0.); // Static object
@@ -145,8 +146,11 @@ bool Demo::init()
   if (!model)
     return false;
 
-  //vaseShape = new btBvhTriangleMeshShape(model->getCollisionMesh(), true);
+  //MeshReader vaseReader(cache);
+  //Ref<Mesh> vaseObj = vaseReader.read(Path("vase_round.obj"));
+  //vaseShape = new btBvhTriangleMeshShape(bullet::convert(*vaseObj), true);
   vaseShape = new btBoxShape(btVector3(2., 3.5, 2.));
+
   btScalar vaseMass(100.f);
   btVector3 vaseLocalInertia(0,0,0);
   vaseShape->calculateLocalInertia(vaseMass, vaseLocalInertia);
