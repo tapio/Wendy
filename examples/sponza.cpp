@@ -178,6 +178,7 @@ bool Demo::init()
 
     btDefaultMotionState* motionState = new btDefaultMotionState(transform);
     btRigidBody::btRigidBodyConstructionInfo rbInfo(vaseMass, motionState, vaseShape, vaseLocalInertia);
+    rbInfo.m_friction = 0.9f;
     entity.body = new btRigidBody(rbInfo);
     dynamicsWorld->addRigidBody(entity.body);
     entities.push_back(entity);
