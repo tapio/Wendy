@@ -15,6 +15,7 @@ out vec3 gPosition;
 out vec2 gTexCoord;
 out vec3 gNormal;
 out vec3 gTangent;
+out vec3 gBinormal;
 
 // This geometry shader calculates tangents for
 // normal/parallax mapping on the fly.
@@ -33,6 +34,7 @@ void emit(const in int id, const in vec3 T)
   gTexCoord = vTexCoord[id];
   gNormal = vNormal[id];
   gTangent = orthogonalize(T, vNormal[id]);
+  gBinormal = cross(gNormal, gTangent);
   gl_Position = wyP * vec4(vPosition[id], 1.0);
   EmitVertex();
 }
@@ -43,7 +45,7 @@ void main()
   vec3 e1 = vPosition[1] - vPosition[0];
   vec3 e2 = vPosition[2] - vPosition[0];
 
-  // Tex coord gradient vector
+  // Tex coord gradient vectors
   vec2 t1 = vTexCoord[1] - vTexCoord[0];
   vec2 t2 = vTexCoord[2] - vTexCoord[0];
 

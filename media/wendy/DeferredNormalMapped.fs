@@ -6,6 +6,7 @@ in vec3 gPosition;
 in vec2 gTexCoord;
 in vec3 gNormal;
 in vec3 gTangent;
+in vec3 gBinormal;
 
 void main()
 {
@@ -14,7 +15,7 @@ void main()
 
   vec3 N = normalize(gNormal);
   vec3 T = normalize(gTangent);
-  vec3 B = cross(N,T);
+  vec3 B = normalize(gBinormal);
   mat3 TBN = mat3(T,B,N);
   vec3 bump = normalize(n * TBN);
 
