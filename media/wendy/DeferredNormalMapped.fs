@@ -20,6 +20,6 @@ void main()
   vec3 bump = normalize(n * TBN);
 
   gl_FragData[0] = texture2D(colormap, gTexCoord);
-  gl_FragData[1] = vec4(0.5f * bump + 1.0f, ns.a);
+  gl_FragData[1] = vec4(0.5f * bump + 0.5f, ns.a);
 }
 
