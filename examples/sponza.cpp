@@ -9,9 +9,10 @@ using namespace wendy;
 namespace
 {
 
-struct Entity {
-  btRigidBody* body;
-  scene::ModelNode* model;
+struct Entity: public RefObject {
+  Ptr<btRigidBody> body;
+  scene::ModelNode* model; // Deleted by scene::Graph
+  Entity(): RefObject() {}
   void syncModelFromBody()
   {
     model->setLocalTransform(bullet::convert(body->getCenterOfMassTransform()));
@@ -45,7 +46,7 @@ private:
   Ptr<btCollisionShape> sponzaShape;
   Ptr<btCollisionShape> cameraShape;
   Ptr<btCollisionShape> vaseShape;
-  std::vector<Entity> entities;
+  std::vector< Ref<Entity> > entities;
   Ptr<btRigidBody> cameraBody;
   Ptr<btBroadphaseInterface> broadphase;
   Ptr<btCollisionDispatcher> dispatcher;
@@ -166,7 +167,8 @@ bool Demo::init()
   };
   for (int i = 0; i < numVases; ++i)
   {
-    Entity entity;
+    entities.push_back(new Entity());
+    Entity& entity = *entities.back();
     entity.model = new scene::ModelNode();
     entity.model->setModel(model);
     entity.model->setLocalPosition(vec3(vasePos[i*2], 3.7f, vasePos[i*2+1]));
@@ -181,7 +183,6 @@ bool Demo::init()
     rbInfo.m_friction = 0.9f;
     entity.body = new btRigidBody(rbInfo);
     dynamicsWorld->addRigidBody(entity.body);
-    entities.push_back(entity);
   }
 
   cameraShape = new btSphereShape(btScalar(3.));
@@ -268,7 +269,7 @@ void Demo::run()
     controller.setPosition(bullet::convert(cameraBody->getCenterOfMassPosition()));
 
     for (size_t i = 0; i < entities.size(); ++i)
-      entities[i].syncModelFromBody();
+      entities[i]->syncModelFromBody();
 
     lightNode->setLocalPosition(vec3(0.f, sinf((float) currentTime) * 40.f + 45.f, 0.f));
     cameraNode->setLocalTransform(controller.getTransform());
