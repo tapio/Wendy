@@ -12,7 +12,7 @@ void main()
 {
   texCoord = wyTexCoord;
   normal = (wyMV * vec4(wyNormal, 0.0)).xyz;
-  tangent = wyTangent;
+  tangent = (wyMV * vec4(wyTangent, 0.0)).xyz;
 
   gl_Position = wyMVP * vec4(wyPosition, 1.0);
 }
