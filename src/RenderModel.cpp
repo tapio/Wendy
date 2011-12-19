@@ -164,7 +164,7 @@ bool Model::init(const Mesh& data, const MaterialMap& materials)
   }
 
   VertexFormat format;
-  if (!format.createComponents("3f:wyPosition 3f:wyNormal 2f:wyTexCoord"))
+  if (!format.createComponents("3f:wyPosition 3f:wyNormal 2f:wyTexCoord 3f:wyTangent"))
     return false;
 
   vertexBuffer = GL::VertexBuffer::create(context,
