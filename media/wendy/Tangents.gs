@@ -14,7 +14,7 @@ in vec3 vNormal[];
 out vec2 gTexCoord;
 out vec3 gNormal;
 out vec3 gTangent;
-out vec3 gBinormal;
+out vec3 gBitangent;
 
 // This geometry shader calculates tangents for
 // normal/parallax mapping on the fly.
@@ -31,11 +31,11 @@ void emit(const in int id, const in vec3 t1, const in vec3 t2)
   gTexCoord = vTexCoord[id];
   gNormal = vNormal[id];
   gTangent = orthogonalize(t1, vNormal[id]);
-  gBinormal = cross(gNormal, gTangent);
+  gBitangent = cross(gNormal, gTangent);
   bool mirrored = (dot(cross(vNormal[id], t1), t2) >= 0.0f);
   if (mirrored) {
     gTangent *= -1.0f;
-    gBinormal *= -1.0f;
+    gBitangent *= -1.0f;
   }
   gl_Position = wyP * vec4(vPosition[id], 1.0f);
   EmitVertex();
