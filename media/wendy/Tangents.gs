@@ -35,6 +35,8 @@ void emit(const in int id, const in vec3 T)
   gNormal = vNormal[id];
   gTangent = orthogonalize(T, vNormal[id]);
   gBinormal = cross(gNormal, gTangent);
+  bool mirrored = (dot(cross(gTangent, gBinormal), gNormal) < 0);
+  if (mirrored) { gBinormal *= -1; }
   gl_Position = wyP * vec4(vPosition[id], 1.0);
   EmitVertex();
 }
