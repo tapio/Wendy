@@ -19,7 +19,6 @@ out vec3 gBinormal;
 // This geometry shader calculates tangents for
 // normal/parallax mapping on the fly.
 
-
 // Gram-Schmidt
 vec3 orthogonalize(const in vec3 t, const in vec3 n)
 {
@@ -27,15 +26,18 @@ vec3 orthogonalize(const in vec3 t, const in vec3 n)
 }
 
 // Set the attributes and emit the vertex
-void emit(const in int id, const in vec3 T)
+void emit(const in int id, const in vec3 t1, const in vec3 t2)
 {
   gTexCoord = vTexCoord[id];
   gNormal = vNormal[id];
-  gTangent = orthogonalize(T, vNormal[id]);
+  gTangent = orthogonalize(t1, vNormal[id]);
   gBinormal = cross(gNormal, gTangent);
-  bool mirrored = (dot(cross(gTangent, gBinormal), gNormal) < 0);
-  if (mirrored) { gBinormal *= -1; }
-  gl_Position = wyP * vec4(vPosition[id], 1.0);
+  bool mirrored = (dot(cross(vNormal[id], t1), t2) >= 0.0f);
+  if (mirrored) {
+    gTangent *= -1.0f;
+    gBinormal *= -1.0f;
+  }
+  gl_Position = wyP * vec4(vPosition[id], 1.0f);
   EmitVertex();
 }
 
@@ -52,13 +54,16 @@ void main()
   float f = 1.0f / (t1.x * t2.y - t2.x * t1.y);
 
   // Magic
-  vec3 T = vec3((t2.y * e1.x - t1.y * e2.x) * f,
-                (t2.y * e1.y - t1.y * e2.y) * f,
-                (t2.y * e1.z - t1.y * e2.z) * f);
+  vec3 tan1 = vec3((t2.y * e1.x - t1.y * e2.x) * f,
+                   (t2.y * e1.y - t1.y * e2.y) * f,
+                   (t2.y * e1.z - t1.y * e2.z) * f);
+  vec3 tan2 = vec3((t1.x * e2.x - t2.x * e1.x) * f,
+                   (t1.x * e2.y - t2.x * e1.y) * f,
+                   (t1.x * e2.z - t2.x * e1.z) * f);
 
-  emit(0, T);
-  emit(1, T);
-  emit(2, T);
+  emit(0, tan1, tan2);
+  emit(1, tan1, tan2);
+  emit(2, tan1, tan2);
 
   EndPrimitive();
 }
