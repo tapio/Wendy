@@ -11,7 +11,6 @@ in vec3 vPosition[];
 in vec2 vTexCoord[];
 in vec3 vNormal[];
 
-out vec3 gPosition;
 out vec2 gTexCoord;
 out vec3 gNormal;
 out vec3 gTangent;
@@ -30,7 +29,6 @@ vec3 orthogonalize(const in vec3 t, const in vec3 n)
 // Set the attributes and emit the vertex
 void emit(const in int id, const in vec3 T)
 {
-  gPosition = vPosition[id];
   gTexCoord = vTexCoord[id];
   gNormal = vNormal[id];
   gTangent = orthogonalize(T, vNormal[id]);

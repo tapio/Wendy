@@ -2,7 +2,6 @@
 uniform sampler2D colormap;
 uniform sampler2D normalmap;
 
-in vec3 gPosition;
 in vec2 gTexCoord;
 in vec3 gNormal;
 in vec3 gTangent;
