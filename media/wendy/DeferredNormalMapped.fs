@@ -5,6 +5,7 @@ uniform sampler2D normalmap;
 varying vec2 texCoord;
 varying vec3 normal;
 varying vec3 tangent;
+varying vec3 bitangent;
 
 void main()
 {
@@ -13,7 +14,7 @@ void main()
 
   vec3 N = normalize(normal);
   vec3 T = normalize(tangent);
-  vec3 B = normalize(cross(N, T));
+  vec3 B = normalize(bitangent);
   mat3 TBN = transpose(mat3(T,B,N));
   vec3 bump = normalize(n * TBN);
 

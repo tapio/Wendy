@@ -47,6 +47,7 @@ public:
   vec3 normal;
   vec2 texcoord;
   vec3 tangent;
+  vec3 bitangent;
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -69,6 +70,7 @@ public:
   unsigned int edges[3];
   vec3 normal;
   vec3 tangent;
+  vec3 bitangent;
 };
 
 ///////////////////////////////////////////////////////////////////////
