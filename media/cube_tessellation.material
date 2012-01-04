@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1" ?>
-<material version="7">
+<material version="8">
   <technique type="forward">
     <pass>
-      <program path="tessellation.program">
+      <program glsl-version="400" vs="tess.vert" fs="tess.frag" tc="tess.ctrl" te="tess.eval">
         <uniform name="TessLevel" value="16" />
       </program>
     </pass>
