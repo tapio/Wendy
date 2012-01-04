@@ -1,7 +1,7 @@
 
-varying vec3 gPosition;
-varying vec3 gNormal;
-varying vec3 gBarycentric;
+in vec3 gPosition;
+in vec3 gNormal;
+in vec3 gBarycentric;
 
 void main()
 {
