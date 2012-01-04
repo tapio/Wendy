@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1" ?>
-<material version="7">
+<material version="8">
   <technique type="deferred">
     <pass>
-      <program path="wendy/DeferredMappedNormalSpecular.program">
+      <program vs="wendy/DeferredMapped.vs" fs="wendy/DeferredMappedNormalSpecular.fs">
         <sampler name="colormap" image="vase_round_diff.png" filter="trilinear" address="wrap" />
         <sampler name="normalmap" image="vase_round_ns.png" filter="trilinear" address="wrap" />
       </program>

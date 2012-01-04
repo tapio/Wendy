@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1" ?>
-<material version="7">
+<material version="8">
   <technique type="deferred">
     <pass>
-      <program path="wendy/DeferredMapped.program">
+      <program vs="wendy/DeferredMapped.vs" fs="wendy/DeferredMapped.fs">
         <sampler name="colormap" image="lion_diff.png" filter="trilinear" address="wrap" />
       </program>
     </pass>
