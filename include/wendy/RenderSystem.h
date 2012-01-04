@@ -46,7 +46,8 @@ public:
   enum Type
   {
     SIMPLE,
-    FORWARD
+    FORWARD,
+    DEFERRED
   };
   ResourceCache& getCache() const;
   GL::Context& getContext() const;

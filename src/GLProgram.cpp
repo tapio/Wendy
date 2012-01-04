@@ -292,6 +292,17 @@ Shader::Shader(const ResourceInfo& info,
 bool Shader::init(const String& text)
 {
   String decl;
+/* FIXME
+  if (shader.version > 100)
+  {
+    std::ostringstream stream;
+    stream << shader.version;
+
+    decl += "#version ";
+    decl += stream.str();
+    decl += "\n";
+  }
+*/
   decl += "#line 0 0\n";
   decl += context.getSharedProgramStateDeclaration();
 
@@ -684,6 +695,16 @@ const Uniform* Program::findUniform(const char* name) const
   return &(*i);
 }
 
+bool Program::hasGeometryShader() const
+{
+  return false;// FIXME geometryShaderID != 0;
+}
+
+bool Program::hasTessellationShaders() const
+{
+  return false; // FIXME tessCtrlShaderID && tessEvalShaderID;
+}
+
 unsigned int Program::getAttributeCount() const
 {
   return attributes.size();
@@ -778,7 +799,79 @@ Ref<Program> Program::read(Context& context,
                 *vertexShader,
                 *fragmentShader);
 }
+/* FIXME
+Ref<Program> Program::create(const ResourceInfo& info,
+                             Context& context,
+                             const Shader& vertexShader,
+                             const Shader& fragmentShader,
+                             const Shader& geometryShader)
+{
+  Ref<Program> program(new Program(info, context));
 
+  if (!program->attachShader(vertexShader, GL_VERTEX_SHADER))
+    return NULL;
+  if (!program->attachShader(fragmentShader, GL_FRAGMENT_SHADER))
+    return NULL;
+  if (!program->attachShader(geometryShader, GL_GEOMETRY_SHADER))
+    return NULL;
+
+  if (!program->link())
+    return NULL;
+
+  return program;
+}
+
+Ref<Program> Program::create(const ResourceInfo& info,
+                             Context& context,
+                             const Shader& vertexShader,
+                             const Shader& fragmentShader,
+                             const Shader& tessCtrlShader,
+                             const Shader& tessEvalShader)
+{
+  Ref<Program> program(new Program(info, context));
+
+  if (!program->attachShader(vertexShader, GL_VERTEX_SHADER))
+    return NULL;
+  if (!program->attachShader(fragmentShader, GL_FRAGMENT_SHADER))
+    return NULL;
+  if (!program->attachShader(tessCtrlShader, GL_TESS_CONTROL_SHADER))
+    return NULL;
+  if (!program->attachShader(tessEvalShader, GL_TESS_EVALUATION_SHADER))
+    return NULL;
+
+  if (!program->link())
+    return NULL;
+
+  return program;
+}
+
+Ref<Program> Program::create(const ResourceInfo& info,
+                             Context& context,
+                             const Shader& vertexShader,
+                             const Shader& fragmentShader,
+                             const Shader& geometryShader,
+                             const Shader& tessCtrlShader,
+                             const Shader& tessEvalShader)
+{
+  Ref<Program> program(new Program(info, context));
+
+  if (!program->attachShader(vertexShader, GL_VERTEX_SHADER))
+    return NULL;
+  if (!program->attachShader(fragmentShader, GL_FRAGMENT_SHADER))
+    return NULL;
+  if (!program->attachShader(geometryShader, GL_GEOMETRY_SHADER))
+    return NULL;
+  if (!program->attachShader(tessCtrlShader, GL_TESS_CONTROL_SHADER))
+    return NULL;
+  if (!program->attachShader(tessEvalShader, GL_TESS_EVALUATION_SHADER))
+    return NULL;
+
+  if (!program->link())
+    return NULL;
+
+  return program;
+}
+*/
 Program::Program(const ResourceInfo& info, Context& initContext):
   Resource(info),
   context(initContext),
@@ -827,6 +920,32 @@ bool Program::init(Shader& initVertexShader, Shader& initFragmentShader)
   glAttachShader(programID, vertexShader->shaderID);
   glAttachShader(programID, fragmentShader->shaderID);
 
+  /* FIXME
+  if (geometryShaderID)
+  {
+    if (!GLEW_ARB_geometry_shader4 && context.getVersion() < Version(3,2))
+    {
+      logError("Context does not support geometry shaders; cannot link program \'%s\'",
+               getName().c_str());
+      return false;
+    }
+
+    glAttachShader(programID, geometryShaderID);
+  }
+
+  if (tessCtrlShaderID && tessEvalShaderID)
+  {
+    if (!GLEW_ARB_tessellation_shader && context.getVersion() < Version(4,0))
+    {
+      logError("Context does not support :essellation shaders; cannot link program \'%s\'",
+               getName().c_str());
+      return false;
+    }
+
+    glAttachShader(programID, tessCtrlShaderID);
+    glAttachShader(programID, tessEvalShaderID);
+  }
+*/
   glLinkProgram(programID);
 
   const String infoLog = getInfoLog();

@@ -202,6 +202,7 @@ MaterialReader::MaterialReader(System& initSystem):
   if (systemTypeMap.isEmpty())
   {
     systemTypeMap["forward"] = System::FORWARD;
+    systemTypeMap["deferred"] = System::DEFERRED;
   }
 
   if (phaseMap.isEmpty())

@@ -284,6 +284,8 @@ public:
   const Sampler* findSampler(const char* name) const;
   Uniform* findUniform(const char* name);
   const Uniform* findUniform(const char* name) const;
+  bool hasGeometryShader() const;
+  bool hasTessellationShaders() const;
   unsigned int getAttributeCount() const;
   Attribute& getAttribute(unsigned int index);
   const Attribute& getAttribute(unsigned int index) const;
@@ -301,6 +303,25 @@ public:
   static Ref<Program> read(Context& context,
                            const String& vertexShaderName,
                            const String& fragmentShaderName);
+  /* FIXME
+  static Ref<Program> create(const ResourceInfo &info,
+                             Context &context,
+                             const Shader& vertexShader,
+                             const Shader& fragmentShader,
+                             const Shader& geometryShader);
+  static Ref<Program> create(const ResourceInfo &info,
+                             Context &context,
+                             const Shader& vertexShader,
+                             const Shader& fragmentShader,
+                             const Shader& tessCtrlShader,
+                             const Shader& tessEvalShader);
+  static Ref<Program> create(const ResourceInfo &info,
+                             Context &context,
+                             const Shader& vertexShader,
+                             const Shader& fragmentShader,
+                             const Shader& geometryShader,
+                             const Shader& tessCtrlShader,
+                             const Shader& tessEvalShader);*/
 private:
   Program(const ResourceInfo& info, Context& context);
   Program(const Program& source);
@@ -318,7 +339,7 @@ private:
   Context& context;
   Ref<Shader> vertexShader;
   Ref<Shader> fragmentShader;
-  unsigned int programID;
+ unsigned int programID;
   AttributeList attributes;
   SamplerList samplers;
   UniformList uniforms;
