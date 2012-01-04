@@ -456,12 +456,19 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
         if (pugi::xml_attribute a = node.attribute("glsl-version"))
           glslVersion = a.as_int();
 
+        String programDefines;
+        for (pugi::xml_node d = node.child("define");  d;  d = d.next_sibling("define"))
+        {
+          programDefines += String("#define ") + d.attribute("name").value() + " " + d.attribute("value").value() + "\n";
+        }
+
         Ref<GL::Program> program = GL::Program::read(context,
                                                      vertexShaderName,
                                                      fragmentShaderName,
                                                      geometryShaderName,
                                                      tessCtrlShaderName,
                                                      tessEvalShaderName,
+                                                     programDefines,
                                                      glslVersion);
         if (!program)
         {

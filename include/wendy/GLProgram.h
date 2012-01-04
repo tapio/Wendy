@@ -79,14 +79,16 @@ public:
                             Context& context,
                             ShaderType type,
                             const String& text,
+                            const String& defines = "",
                             int version = 100);
   static Ref<Shader> read(Context& context,
                           ShaderType type,
                           const String& name,
+                          const String& defines = "",
                           int version = 100);
 private:
   Shader(const ResourceInfo& info, Context& context, ShaderType type, int version);
-  bool init(const String& text);
+  bool init(const String& text, const String& defines);
   Context& context;
   ShaderType type;
   int version;
@@ -334,6 +336,7 @@ public:
                            const String& geometryShaderName = "",
                            const String& tessCtrlShaderName = "",
                            const String& tessEvalShaderName = "",
+                           const String& defines = "",
                            int glslVersion = 100);
 private:
   Program(const ResourceInfo& info, Context& context);

@@ -269,10 +269,11 @@ Ref<Shader> Shader::create(const ResourceInfo& info,
                           Context& context,
                           ShaderType type,
                           const String& text,
+                          const String& defines,
                           int version)
 {
   Ref<Shader> shader(new Shader(info, context, type, version));
-  if (!shader->init(text))
+  if (!shader->init(text, defines))
     return NULL;
 
   return shader;
@@ -281,12 +282,14 @@ Ref<Shader> Shader::create(const ResourceInfo& info,
 Ref<Shader> Shader::read(Context& context,
                         ShaderType type,
                         const String& name,
+                        const String& defines,
                         int version)
 {
   ResourceCache& cache = context.getCache();
 
   // TODO: Use version in cache look-up?
-  if (Ref<Shader> shader = cache.find<Shader>(name))
+  String nameInCache = name + defines;
+  if (Ref<Shader> shader = cache.find<Shader>(nameInCache))
     return shader;
 
   const Path path = cache.findFile(name);
@@ -311,7 +314,7 @@ Ref<Shader> Shader::read(Context& context,
   stream.seekg(0, std::ios::beg);
   stream.read(&text[0], text.size());
 
-  return create(ResourceInfo(cache, name), context, type, text, version);
+  return create(ResourceInfo(cache, nameInCache), context, type, text, defines, version);
 }
 
 Shader::Shader(const ResourceInfo& info,
@@ -326,7 +329,7 @@ Shader::Shader(const ResourceInfo& info,
 {
 }
 
-bool Shader::init(const String& text)
+bool Shader::init(const String& text, const String& defines)
 {
   String decl;
   if (version > 100)
@@ -340,6 +343,8 @@ bool Shader::init(const String& text)
   }
 
   decl += "#line 0 0\n";
+  decl += defines;
+  decl += "\n";
   decl += context.getSharedProgramStateDeclaration();
 
   String main;
@@ -847,6 +852,7 @@ Ref<Program> Program::read(Context& context,
                            const String& geometryShaderName,
                            const String& tessCtrlShaderName,
                            const String& tessEvalShaderName,
+                           const String &defines,
                            int glslVersion)
 {
   ResourceCache& cache = context.getCache();
@@ -864,22 +870,24 @@ Ref<Program> Program::read(Context& context,
     name.append(" tc:" + tessCtrlShaderName);
   if (!tessEvalShaderName.empty())
     name.append(" te:" + tessEvalShaderName);
+  if (!defines.empty())
+    name.append(" defines:" + defines);
 
   if (Ref<Program> program = cache.find<Program>(name))
     return program;
 
-  Ref<Shader> vertexShader = Shader::read(context, VERTEX_SHADER, vertexShaderName, glslVersion);
+  Ref<Shader> vertexShader = Shader::read(context, VERTEX_SHADER, vertexShaderName, defines, glslVersion);
   if (!vertexShader)
     return NULL;
 
-  Ref<Shader> fragmentShader = Shader::read(context, FRAGMENT_SHADER, fragmentShaderName, glslVersion);
+  Ref<Shader> fragmentShader = Shader::read(context, FRAGMENT_SHADER, fragmentShaderName, defines, glslVersion);
   if (!fragmentShader)
     return NULL;
 
   Ref<Shader> geometryShader = NULL;
   if (!geometryShaderName.empty())
   {
-    geometryShader = Shader::read(context, GEOMETRY_SHADER, geometryShaderName, glslVersion);
+    geometryShader = Shader::read(context, GEOMETRY_SHADER, geometryShaderName, defines, glslVersion);
     if (!geometryShader)
       return NULL;
   }
@@ -888,10 +896,10 @@ Ref<Program> Program::read(Context& context,
   Ref<Shader> tessEvalShader = NULL;
   if (!tessCtrlShaderName.empty() && !tessEvalShaderName.empty())
   {
-    tessCtrlShader = Shader::read(context, TESS_CONTROL_SHADER, tessCtrlShaderName, glslVersion);
+    tessCtrlShader = Shader::read(context, TESS_CONTROL_SHADER, tessCtrlShaderName, defines, glslVersion);
     if (!tessCtrlShader)
       return NULL;
-    tessEvalShader = Shader::read(context, TESS_EVALUATION_SHADER, tessEvalShaderName, glslVersion);
+    tessEvalShader = Shader::read(context, TESS_EVALUATION_SHADER, tessEvalShaderName, defines, glslVersion);
     if (!tessEvalShader)
       return NULL;
 
