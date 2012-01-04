@@ -161,6 +161,12 @@ const char* getTypeName(ShaderType type)
       return "vertex";
     case FRAGMENT_SHADER:
       return "fragment";
+    case GEOMETRY_SHADER:
+      return "geometry";
+    case TESS_CONTROL_SHADER:
+      return "control";
+    case TESS_EVALUATION_SHADER:
+      return "evaluation";
   }
 
   panic("Invalid shader type %i", type);
@@ -198,6 +204,12 @@ GLenum convertToGL(ShaderType type)
       return GL_VERTEX_SHADER;
     case FRAGMENT_SHADER:
       return GL_FRAGMENT_SHADER;
+    case GEOMETRY_SHADER:
+      return GL_GEOMETRY_SHADER;
+    case TESS_CONTROL_SHADER:
+      return GL_TESS_CONTROL_SHADER;
+    case TESS_EVALUATION_SHADER:
+      return GL_TESS_EVALUATION_SHADER;
   }
 
   panic("Invalid GLSL shader type %i", type);
@@ -223,9 +235,29 @@ bool Shader::isFragmentShader() const
   return type == FRAGMENT_SHADER;
 }
 
+bool Shader::isGeometryShader() const
+{
+  return type == GEOMETRY_SHADER;
+}
+
+bool Shader::isTessControlShader() const
+{
+  return type == TESS_CONTROL_SHADER;
+}
+
+bool Shader::isTessEvaluationShader() const
+{
+  return type == TESS_EVALUATION_SHADER;
+}
+
 ShaderType Shader::getType() const
 {
   return type;
+}
+
+int Shader::getVersion() const
+{
+  return version;
 }
 
 Context& Shader::getContext() const
@@ -236,9 +268,10 @@ Context& Shader::getContext() const
 Ref<Shader> Shader::create(const ResourceInfo& info,
                           Context& context,
                           ShaderType type,
-                          const String& text)
+                          const String& text,
+                          int version)
 {
-  Ref<Shader> shader(new Shader(info, context, type));
+  Ref<Shader> shader(new Shader(info, context, type, version));
   if (!shader->init(text))
     return NULL;
 
@@ -247,10 +280,12 @@ Ref<Shader> Shader::create(const ResourceInfo& info,
 
 Ref<Shader> Shader::read(Context& context,
                         ShaderType type,
-                        const String& name)
+                        const String& name,
+                        int version)
 {
   ResourceCache& cache = context.getCache();
 
+  // TODO: Use version in cache look-up?
   if (Ref<Shader> shader = cache.find<Shader>(name))
     return shader;
 
@@ -276,15 +311,17 @@ Ref<Shader> Shader::read(Context& context,
   stream.seekg(0, std::ios::beg);
   stream.read(&text[0], text.size());
 
-  return create(ResourceInfo(cache, name), context, type, text);
+  return create(ResourceInfo(cache, name), context, type, text, version);
 }
 
 Shader::Shader(const ResourceInfo& info,
                Context& initContext,
-               ShaderType initType):
+               ShaderType initType,
+               int initVersion):
   Resource(info),
   context(initContext),
   type(initType),
+  version(initVersion),
   shaderID(0)
 {
 }
@@ -292,17 +329,16 @@ Shader::Shader(const ResourceInfo& info,
 bool Shader::init(const String& text)
 {
   String decl;
-/* FIXME
-  if (shader.version > 100)
+  if (version > 100)
   {
     std::ostringstream stream;
-    stream << shader.version;
+    stream << version;
 
     decl += "#version ";
     decl += stream.str();
     decl += "\n";
   }
-*/
+
   decl += "#line 0 0\n";
   decl += context.getSharedProgramStateDeclaration();
 
@@ -697,12 +733,12 @@ const Uniform* Program::findUniform(const char* name) const
 
 bool Program::hasGeometryShader() const
 {
-  return false;// FIXME geometryShaderID != 0;
+  return geometryShader != NULL;
 }
 
 bool Program::hasTessellationShaders() const
 {
-  return false; // FIXME tessCtrlShaderID && tessEvalShaderID;
+  return tessCtrlShader != NULL && tessEvalShader != NULL;
 }
 
 unsigned int Program::getAttributeCount() const
@@ -761,117 +797,116 @@ Ref<Program> Program::create(const ResourceInfo& info,
                              Shader& fragmentShader)
 {
   Ref<Program> program(new Program(info, context));
-  if (!program->init(vertexShader, fragmentShader))
+  if (!program->init(&vertexShader, &fragmentShader))
     return NULL;
+  return program;
+}
 
+Ref<Program> Program::create(const ResourceInfo& info,
+                             Context& context,
+                             Shader& vertexShader,
+                             Shader& fragmentShader,
+                             Shader& geometryShader)
+{
+  Ref<Program> program(new Program(info, context));
+  if (!program->init(&vertexShader, &fragmentShader, &geometryShader))
+    return NULL;
+  return program;
+}
+
+Ref<Program> Program::create(const ResourceInfo& info,
+                             Context& context,
+                             Shader& vertexShader,
+                             Shader& fragmentShader,
+                             Shader& tessCtrlShader,
+                             Shader& tessEvalShader)
+{
+  Ref<Program> program(new Program(info, context));
+  if (!program->init(&vertexShader, &fragmentShader, NULL, &tessCtrlShader, &tessEvalShader))
+    return NULL;
+  return program;
+}
+
+Ref<Program> Program::create(const ResourceInfo& info,
+                             Context& context,
+                             Shader& vertexShader,
+                             Shader& fragmentShader,
+                             Shader& geometryShader,
+                             Shader& tessCtrlShader,
+                             Shader& tessEvalShader)
+{
+  Ref<Program> program(new Program(info, context));
+  if (!program->init(&vertexShader, &fragmentShader, &geometryShader, &tessCtrlShader, &tessEvalShader))
+    return NULL;
   return program;
 }
 
 Ref<Program> Program::read(Context& context,
                            const String& vertexShaderName,
-                           const String& fragmentShaderName)
+                           const String& fragmentShaderName,
+                           const String& geometryShaderName,
+                           const String& tessCtrlShaderName,
+                           const String& tessEvalShaderName,
+                           int glslVersion)
 {
   ResourceCache& cache = context.getCache();
+
+  // TODO: Use version in name?
 
   String name;
   name.append("vs:");
   name.append(vertexShaderName);
   name.append(" fs:");
   name.append(fragmentShaderName);
+  if (!geometryShaderName.empty())
+    name.append(" gs:" + geometryShaderName);
+  if (!tessCtrlShaderName.empty())
+    name.append(" tc:" + tessCtrlShaderName);
+  if (!tessEvalShaderName.empty())
+    name.append(" te:" + tessEvalShaderName);
 
   if (Ref<Program> program = cache.find<Program>(name))
     return program;
 
-  Ref<Shader> vertexShader = Shader::read(context,
-                                          VERTEX_SHADER,
-                                          vertexShaderName);
+  Ref<Shader> vertexShader = Shader::read(context, VERTEX_SHADER, vertexShaderName, glslVersion);
   if (!vertexShader)
     return NULL;
 
-  Ref<Shader> fragmentShader = Shader::read(context,
-                                            FRAGMENT_SHADER,
-                                            fragmentShaderName);
+  Ref<Shader> fragmentShader = Shader::read(context, FRAGMENT_SHADER, fragmentShaderName, glslVersion);
   if (!fragmentShader)
     return NULL;
 
-  return create(ResourceInfo(cache, name),
-                context,
-                *vertexShader,
-                *fragmentShader);
-}
-/* FIXME
-Ref<Program> Program::create(const ResourceInfo& info,
-                             Context& context,
-                             const Shader& vertexShader,
-                             const Shader& fragmentShader,
-                             const Shader& geometryShader)
-{
-  Ref<Program> program(new Program(info, context));
+  Ref<Shader> geometryShader = NULL;
+  if (!geometryShaderName.empty())
+  {
+    geometryShader = Shader::read(context, GEOMETRY_SHADER, geometryShaderName, glslVersion);
+    if (!geometryShader)
+      return NULL;
+  }
 
-  if (!program->attachShader(vertexShader, GL_VERTEX_SHADER))
-    return NULL;
-  if (!program->attachShader(fragmentShader, GL_FRAGMENT_SHADER))
-    return NULL;
-  if (!program->attachShader(geometryShader, GL_GEOMETRY_SHADER))
-    return NULL;
+  Ref<Shader> tessCtrlShader = NULL;
+  Ref<Shader> tessEvalShader = NULL;
+  if (!tessCtrlShaderName.empty() && !tessEvalShaderName.empty())
+  {
+    tessCtrlShader = Shader::read(context, TESS_CONTROL_SHADER, tessCtrlShaderName, glslVersion);
+    if (!tessCtrlShader)
+      return NULL;
+    tessEvalShader = Shader::read(context, TESS_EVALUATION_SHADER, tessEvalShaderName, glslVersion);
+    if (!tessEvalShader)
+      return NULL;
 
-  if (!program->link())
-    return NULL;
+    if (geometryShader)
+      return create(ResourceInfo(cache, name), context, *vertexShader, *fragmentShader, *geometryShader, *tessCtrlShader, *tessEvalShader);
+    else
+      return create(ResourceInfo(cache, name), context, *vertexShader, *fragmentShader, *tessCtrlShader, *tessEvalShader);
+  }
 
-  return program;
-}
-
-Ref<Program> Program::create(const ResourceInfo& info,
-                             Context& context,
-                             const Shader& vertexShader,
-                             const Shader& fragmentShader,
-                             const Shader& tessCtrlShader,
-                             const Shader& tessEvalShader)
-{
-  Ref<Program> program(new Program(info, context));
-
-  if (!program->attachShader(vertexShader, GL_VERTEX_SHADER))
-    return NULL;
-  if (!program->attachShader(fragmentShader, GL_FRAGMENT_SHADER))
-    return NULL;
-  if (!program->attachShader(tessCtrlShader, GL_TESS_CONTROL_SHADER))
-    return NULL;
-  if (!program->attachShader(tessEvalShader, GL_TESS_EVALUATION_SHADER))
-    return NULL;
-
-  if (!program->link())
-    return NULL;
-
-  return program;
+  if (geometryShader)
+    return create(ResourceInfo(cache, name), context, *vertexShader, *fragmentShader, *geometryShader);
+  else
+    return create(ResourceInfo(cache, name), context, *vertexShader, *fragmentShader);
 }
 
-Ref<Program> Program::create(const ResourceInfo& info,
-                             Context& context,
-                             const Shader& vertexShader,
-                             const Shader& fragmentShader,
-                             const Shader& geometryShader,
-                             const Shader& tessCtrlShader,
-                             const Shader& tessEvalShader)
-{
-  Ref<Program> program(new Program(info, context));
-
-  if (!program->attachShader(vertexShader, GL_VERTEX_SHADER))
-    return NULL;
-  if (!program->attachShader(fragmentShader, GL_FRAGMENT_SHADER))
-    return NULL;
-  if (!program->attachShader(geometryShader, GL_GEOMETRY_SHADER))
-    return NULL;
-  if (!program->attachShader(tessCtrlShader, GL_TESS_CONTROL_SHADER))
-    return NULL;
-  if (!program->attachShader(tessEvalShader, GL_TESS_EVALUATION_SHADER))
-    return NULL;
-
-  if (!program->link())
-    return NULL;
-
-  return program;
-}
-*/
 Program::Program(const ResourceInfo& info, Context& initContext):
   Resource(info),
   context(initContext),
@@ -888,10 +923,17 @@ Program::Program(const Program& source):
   panic("GLSL programs may not be copied");
 }
 
-bool Program::init(Shader& initVertexShader, Shader& initFragmentShader)
+bool Program::init(Shader* initVertexShader,
+                   Shader* initFragmentShader,
+                   Shader* initGeometryShader,
+                   Shader* initTessCtrlShader,
+                   Shader* initTessEvalShader)
 {
-  vertexShader = &initVertexShader;
-  fragmentShader = &initFragmentShader;
+  vertexShader = initVertexShader;
+  fragmentShader = initFragmentShader;
+  geometryShader = initGeometryShader;
+  tessCtrlShader = initTessCtrlShader;
+  tessEvalShader = initTessEvalShader;
 
   if (!vertexShader->isVertexShader())
   {
@@ -909,6 +951,8 @@ bool Program::init(Shader& initVertexShader, Shader& initFragmentShader)
     return false;
   }
 
+  // TODO: Add checks for other shader types
+
   programID = glCreateProgram();
   if (!programID)
   {
@@ -920,8 +964,7 @@ bool Program::init(Shader& initVertexShader, Shader& initFragmentShader)
   glAttachShader(programID, vertexShader->shaderID);
   glAttachShader(programID, fragmentShader->shaderID);
 
-  /* FIXME
-  if (geometryShaderID)
+  if (geometryShader)
   {
     if (!GLEW_ARB_geometry_shader4 && context.getVersion() < Version(3,2))
     {
@@ -930,22 +973,22 @@ bool Program::init(Shader& initVertexShader, Shader& initFragmentShader)
       return false;
     }
 
-    glAttachShader(programID, geometryShaderID);
+    glAttachShader(programID, geometryShader->shaderID);
   }
 
-  if (tessCtrlShaderID && tessEvalShaderID)
+  if (tessCtrlShader && tessEvalShader)
   {
     if (!GLEW_ARB_tessellation_shader && context.getVersion() < Version(4,0))
     {
-      logError("Context does not support :essellation shaders; cannot link program \'%s\'",
+      logError("Context does not support tessellation shaders; cannot link program \'%s\'",
                getName().c_str());
       return false;
     }
 
-    glAttachShader(programID, tessCtrlShaderID);
-    glAttachShader(programID, tessEvalShaderID);
+    glAttachShader(programID, tessCtrlShader->shaderID);
+    glAttachShader(programID, tessEvalShader->shaderID);
   }
-*/
+
   glLinkProgram(programID);
 
   const String infoLog = getInfoLog();

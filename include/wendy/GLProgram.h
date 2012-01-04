@@ -51,7 +51,10 @@ class Program;
 enum ShaderType
 {
   VERTEX_SHADER,
-  FRAGMENT_SHADER
+  FRAGMENT_SHADER,
+  GEOMETRY_SHADER,
+  TESS_CONTROL_SHADER,
+  TESS_EVALUATION_SHADER
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -66,20 +69,27 @@ public:
   ~Shader();
   bool isVertexShader() const;
   bool isFragmentShader() const;
+  bool isGeometryShader() const;
+  bool isTessControlShader() const;
+  bool isTessEvaluationShader() const;
   ShaderType getType() const;
+  int getVersion() const;
   Context& getContext() const;
   static Ref<Shader> create(const ResourceInfo& info,
                             Context& context,
                             ShaderType type,
-                            const String& text);
+                            const String& text,
+                            int version = 100);
   static Ref<Shader> read(Context& context,
                           ShaderType type,
-                          const String& name);
+                          const String& name,
+                          int version = 100);
 private:
-  Shader(const ResourceInfo& info, Context& context, ShaderType type);
+  Shader(const ResourceInfo& info, Context& context, ShaderType type, int version);
   bool init(const String& text);
   Context& context;
   ShaderType type;
+  int version;
   unsigned int shaderID;
 };
 
@@ -300,32 +310,39 @@ public:
                              Context& context,
                              Shader& vertexShader,
                              Shader& fragmentShader);
+  static Ref<Program> create(const ResourceInfo &info,
+                             Context &context,
+                             Shader& vertexShader,
+                             Shader& fragmentShader,
+                             Shader& geometryShader);
+  static Ref<Program> create(const ResourceInfo &info,
+                             Context &context,
+                             Shader& vertexShader,
+                             Shader& fragmentShader,
+                             Shader& tessCtrlShader,
+                             Shader& tessEvalShader);
+  static Ref<Program> create(const ResourceInfo &info,
+                             Context &context,
+                             Shader& vertexShader,
+                             Shader& fragmentShader,
+                             Shader& geometryShader,
+                             Shader& tessCtrlShader,
+                             Shader& tessEvalShader);
   static Ref<Program> read(Context& context,
                            const String& vertexShaderName,
-                           const String& fragmentShaderName);
-  /* FIXME
-  static Ref<Program> create(const ResourceInfo &info,
-                             Context &context,
-                             const Shader& vertexShader,
-                             const Shader& fragmentShader,
-                             const Shader& geometryShader);
-  static Ref<Program> create(const ResourceInfo &info,
-                             Context &context,
-                             const Shader& vertexShader,
-                             const Shader& fragmentShader,
-                             const Shader& tessCtrlShader,
-                             const Shader& tessEvalShader);
-  static Ref<Program> create(const ResourceInfo &info,
-                             Context &context,
-                             const Shader& vertexShader,
-                             const Shader& fragmentShader,
-                             const Shader& geometryShader,
-                             const Shader& tessCtrlShader,
-                             const Shader& tessEvalShader);*/
+                           const String& fragmentShaderName,
+                           const String& geometryShaderName = "",
+                           const String& tessCtrlShaderName = "",
+                           const String& tessEvalShaderName = "",
+                           int glslVersion = 100);
 private:
   Program(const ResourceInfo& info, Context& context);
   Program(const Program& source);
-  bool init(Shader& vertexShader, Shader& fragmentShader);
+  bool init(Shader* vertexShader,
+            Shader* fragmentShader,
+            Shader* geometryShader = NULL,
+            Shader* tessCtrlShader = NULL,
+            Shader* tessEvalShader = NULL);
   bool retrieveUniforms();
   bool retrieveAttributes();
   void bind();
@@ -339,7 +356,10 @@ private:
   Context& context;
   Ref<Shader> vertexShader;
   Ref<Shader> fragmentShader;
- unsigned int programID;
+  Ref<Shader> geometryShader;
+  Ref<Shader> tessCtrlShader;
+  Ref<Shader> tessEvalShader;
+  unsigned int programID;
   AttributeList attributes;
   SamplerList samplers;
   UniformList uniforms;
