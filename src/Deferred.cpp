@@ -243,13 +243,10 @@ bool Renderer::init(const Config& config)
 
   // Set up ambient light pass
   {
-    const String programName("wendy/DeferredAmbientLight.program");
-
-    Ref<GL::Program> program;// FIXME = GL::Program::read(context, programName);
+    Ref<GL::Program> program = GL::Program::read(context, "wendy/DeferredLight.vs", "wendy/DeferredAmbientLight.fs");
     if (!program)
     {
-      logError("Failed to read deferred ambient light program \'%s\'",
-               programName.c_str());
+      logError("Failed to read deferred ambient light program");
       return false;
     }
 
@@ -273,13 +270,10 @@ bool Renderer::init(const Config& config)
 
   // Set up directional light pass
   {
-    const String programName("wendy/DeferredDirLight.program");
-
-    Ref<GL::Program> program; // FIXME = GL::Program::read(context, programName);
+    Ref<GL::Program> program = GL::Program::read(context, "wendy/DeferredLight.vs", "wendy/DeferredDirLight.fs");
     if (!program)
     {
-      logError("Failed to read deferred directional light program \'%s\'",
-               programName.c_str());
+      logError("Failed to read deferred directional light program");
       return false;
     }
 
@@ -310,13 +304,10 @@ bool Renderer::init(const Config& config)
 
   // Set up point light pass
   {
-    const String programName("wendy/DeferredPointLight.program");
-
-    Ref<GL::Program> program; // FIXME = GL::Program::read(context, programName);
+    Ref<GL::Program> program = GL::Program::read(context, "wendy/DeferredLight.vs", "wendy/DeferredPointLight.fs");
     if (!program)
     {
-      logError("Failed to read deferred point light program \'%s\'",
-               programName.c_str());
+      logError("Failed to read deferred point light program");
       return false;
     }
 
