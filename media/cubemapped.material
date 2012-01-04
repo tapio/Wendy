@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1" ?>
-<material version="7">
+<material version="8">
   <technique type="forward">
     <pass>
-      <program path="cubemapped.program">
+      <program vs="cubemapped.vs" fs="cubemapped.fs">
         <sampler name="cubemap" image="cubemap.png" />
       </program>
     </pass>
