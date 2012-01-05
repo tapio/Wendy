@@ -21,10 +21,13 @@ public:
 private:
   void onContextResized(unsigned int width, unsigned int height);
   ResourceCache cache;
+  GL::Stats stats;
   input::MayaCamera controller;
   Ref<render::GeometryPool> pool;
   Ref<render::Camera> camera;
   Ref<forward::Renderer> renderer;
+  Ref<UI::Drawer> drawer;
+  Ref<debug::Interface> interface;
   scene::Graph graph;
   scene::CameraNode* cameraNode;
 };
@@ -33,6 +36,8 @@ Test::~Test()
 {
   graph.destroyRootNodes();
 
+  interface = NULL;
+  drawer = NULL;
   renderer = NULL;
   pool = NULL;
 
@@ -52,11 +57,12 @@ bool Test::init()
   GL::ContextConfig cc;
   cc.version = GL::Version(4,1);
 
-  if (!GL::Context::createSingleton(cache, GL::WindowConfig(), cc))
+  if (!GL::Context::createSingleton(cache, GL::WindowConfig("OpenGL 4 Hardware Tessellation"), cc))
     return false;
 
   GL::Context* context = GL::Context::getSingleton();
   context->getResizedSignal().connect(*this, &Test::onContextResized);
+  context->setStats(&stats);
 
   if (!input::Context::createSingleton(*context))
     return false;
@@ -105,6 +111,11 @@ bool Test::init()
   cameraNode->setLocalPosition(vec3(0.f, 0.f, model->getBoundingSphere().radius * 3.f));
   graph.addRootNode(*cameraNode);
 
+  drawer = UI::Drawer::create(*pool);
+  if (!drawer)
+    return false;
+  interface = new debug::Interface(*input::Context::getSingleton(), *drawer);
+
   return true;
 }
 
@@ -112,8 +123,6 @@ void Test::run()
 {
   render::Scene scene(*pool);
   GL::Context& context = pool->getContext();
-  GL::Stats stats;
-  context.setStats(&stats);
 
   do
   {
@@ -128,9 +137,8 @@ void Test::run()
     scene.removeOperations();
     scene.detachLights();
 
-    std::ostringstream oss;
-    oss << "OpenGL 4 Hardware Tessellation - FPS: " << stats.getFrameRate();
-    context.setTitle(oss.str().c_str());
+    interface->update();
+    interface->draw();
   }
   while (context.update());
 }

@@ -188,7 +188,7 @@ bool Model::init(System& system, const Mesh& data, const MaterialMap& materials)
   GL::Context& context = system.getContext();
 
   VertexFormat format;
-  if (!format.createComponents("3f:wyPosition 3f:wyNormal 2f:wyTexCoord"))
+  if (!format.createComponents("3f:wyPosition 3f:wyNormal 2f:wyTexCoord 3f:wyTangent 3f:wyBitangent"))
     return false;
 
   vertexBuffer = GL::VertexBuffer::create(context,

@@ -452,7 +452,7 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
         const String tessCtrlShaderName(node.attribute("tc").value());
         const String tessEvalShaderName(node.attribute("te").value());
 
-        int glslVersion = 100;
+        int glslVersion = GL::Shader::DefaultVersion;
         if (pugi::xml_attribute a = node.attribute("glsl-version"))
           glslVersion = a.as_int();
 

@@ -2,8 +2,7 @@
 <material version="8">
   <technique type="deferred">
     <pass>
-      <program vs="wendy/DeferredMapped.vs" fs="wendy/DeferredMapped.fs">
-        <define name="SPECULAR_MASK" />
+      <program vs="wendy/DeferredNormalMapped.vs" fs="wendy/DeferredNormalMapped.fs">
         <sampler name="colormap" image="vase_round_diff.png" filter="trilinear" address="wrap" />
         <sampler name="normalmap" image="vase_round_ns.png" filter="trilinear" address="wrap" />
       </program>

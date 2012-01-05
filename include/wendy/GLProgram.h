@@ -82,6 +82,7 @@ class Shader : public Resource
 {
   friend class Program;
 public:
+  static const int DefaultVersion = 120;
   ~Shader();
   bool isVertexShader() const;
   bool isFragmentShader() const;
@@ -101,7 +102,7 @@ public:
                           ShaderType type,
                           const String& name,
                           const ShaderDefines& defines = ShaderDefines(),
-                          int version = 100);
+                          int version = DefaultVersion);
 private:
   Shader(const ResourceInfo& info, Context& context, ShaderType type, int version);
   bool init(const String& text, const ShaderDefines& defines);
@@ -353,7 +354,7 @@ public:
                            const String& tessCtrlShaderName = "",
                            const String& tessEvalShaderName = "",
                            const ShaderDefines& defines = ShaderDefines(),
-                           int glslVersion = 100);
+                           int glslVersion = Shader::DefaultVersion);
 private:
   Program(const ResourceInfo& info, Context& context);
   Program(const Program& source);

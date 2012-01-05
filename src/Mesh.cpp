@@ -307,6 +307,70 @@ void Mesh::generateTriangleNormals()
   }
 }
 
+void Mesh::generateTangents()
+{
+  // Inspired by article:
+  // Lengyel, Eric. “Computing Tangent Space Basis Vectors for an Arbitrary Mesh”.
+  // Terathon Software 3D Graphics Library, 2001.
+  // http://www.terathon.com/code/tangent.html
+
+  // TODO: Clear previous tangents
+
+  std::vector<vec3> tan1(vertices.size(), vec3(0,0,0));
+  std::vector<vec3> tan2(vertices.size(), vec3(0,0,0));
+
+  for (size_t i = 0;  i < sections.size();  i++)
+  {
+    for (size_t j = 0;  j < sections[i].triangles.size();  j++)
+    {
+      // Convenience variables
+      MeshTriangle& triangle = sections[i].triangles[j];
+      const MeshVertex& v0 = vertices[triangle.indices[0]];
+      const MeshVertex& v1 = vertices[triangle.indices[1]];
+      const MeshVertex& v2 = vertices[triangle.indices[2]];
+
+      // Edge vectors
+      const vec3 e1 = v1.position - v0.position;
+      const vec3 e2 = v2.position - v0.position;
+
+      // Texture coord magic
+      const vec2 uv1 = v1.texcoord - v0.texcoord;
+      const vec2 uv2 = v2.texcoord - v0.texcoord;
+      const float r = 1.0 / (uv1.x * uv2.y - uv2.x * uv1.y);
+
+      // Tangent components
+      triangle.tangent.x = (uv2.y * e1.x - uv1.y * e2.x) * r;
+      triangle.tangent.y = (uv2.y * e1.y - uv1.y * e2.y) * r;
+      triangle.tangent.z = (uv2.y * e1.z - uv1.y * e2.z) * r;
+      triangle.bitangent.x = (uv1.x * e2.x - uv2.x * e1.x) * r;
+      triangle.bitangent.y = (uv1.x * e2.y - uv2.x * e1.y) * r;
+      triangle.bitangent.z = (uv1.x * e2.z - uv2.x * e1.z) * r;
+
+      // Apply results
+      tan1[triangle.indices[0]] = triangle.tangent;
+      tan1[triangle.indices[1]] = triangle.tangent;
+      tan1[triangle.indices[2]] = triangle.tangent;
+      tan2[triangle.indices[0]] = triangle.bitangent;
+      tan2[triangle.indices[1]] = triangle.bitangent;
+      tan2[triangle.indices[2]] = triangle.bitangent;
+    }
+  }
+
+  for (size_t i = 0;  i < vertices.size();  i++)
+  {
+    const vec3& n = vertices[i].normal;
+    // Gram-Schmidt orthogonalize
+    vertices[i].tangent = normalize(tan1[i] - n * dot(n, tan1[i]));
+    // Bitangent
+    vertices[i].bitangent = cross(n, vertices[i].tangent);
+    // Check for mirroring
+    if (dot(cross(n, tan1[i]), tan2[i]) >= 0.0f) {
+      vertices[i].tangent *= -1.0f;
+      vertices[i].bitangent *= -1.0f;
+    }
+  }
+}
+
 AABB Mesh::generateBoundingAABB() const
 {
   AABB bounds;
@@ -608,6 +672,9 @@ Ref<Mesh> MeshReader::read(const String& name, const Path& path)
   }
 
   tool.realizeVertices(mesh->vertices);
+
+  mesh->generateTangents();
+
   return mesh;
 }
 

@@ -1,7 +1,10 @@
+#version 330
 
 in vec3 gPosition;
 in vec3 gNormal;
 in vec3 gBarycentric;
+
+out vec4 FragColor;
 
 void main()
 {
@@ -20,6 +23,6 @@ void main()
 
   float grey = min(min(c1, c2), c3);
 
-  gl_FragColor = vec4(vec3(grey,grey,grey) * (ambient + diffuse), 1.0);
+  FragColor = vec4(vec3(grey,grey,grey) * (ambient + diffuse), 1.0);
 }
 

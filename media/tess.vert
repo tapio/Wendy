@@ -1,4 +1,4 @@
-
+#version 400
 in vec3 wyPosition;
 in vec3 wyNormal;
 out vec3 vPosition;
