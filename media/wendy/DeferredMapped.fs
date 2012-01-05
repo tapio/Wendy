@@ -13,16 +13,14 @@ varying vec2 texCoord;
 
 void main()
 {
-#ifdef MASKED
   vec4 color = texture2D(colormap, texCoord);
+
+#ifdef MASKED
   if (color.a - 0.5 < 0.0)
     discard;
-#else
-  #define color texture2D(colormap, texCoord)
 #endif
 
   gl_FragData[0] = color;
-
   gl_FragData[1] = vec4(normalize(normal) / 2.0 + 0.5, MASK);
 }
 
