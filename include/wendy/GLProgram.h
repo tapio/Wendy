@@ -66,6 +66,7 @@ class Shader : public Resource
 {
   friend class Program;
 public:
+  static const int DefaultVersion = 120;
   ~Shader();
   bool isVertexShader() const;
   bool isFragmentShader() const;
@@ -79,11 +80,11 @@ public:
                             Context& context,
                             ShaderType type,
                             const String& text,
-                            int version = 100);
+                            int version = DefaultVersion);
   static Ref<Shader> read(Context& context,
                           ShaderType type,
                           const String& name,
-                          int version = 100);
+                          int version = DefaultVersion);
 private:
   Shader(const ResourceInfo& info, Context& context, ShaderType type, int version);
   bool init(const String& text);
@@ -334,7 +335,7 @@ public:
                            const String& geometryShaderName = "",
                            const String& tessCtrlShaderName = "",
                            const String& tessEvalShaderName = "",
-                           int glslVersion = 100);
+                           int glslVersion = Shader::DefaultVersion);
 private:
   Program(const ResourceInfo& info, Context& context);
   Program(const Program& source);
