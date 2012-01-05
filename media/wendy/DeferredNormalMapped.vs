@@ -1,3 +1,4 @@
+#version 120
 
 attribute vec3 wyPosition;
 attribute vec3 wyNormal;

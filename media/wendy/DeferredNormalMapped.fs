@@ -1,3 +1,4 @@
+#version 120
 
 uniform sampler2D colormap;
 uniform sampler2D normalmap;
