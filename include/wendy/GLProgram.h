@@ -59,6 +59,22 @@ enum ShaderType
 
 ///////////////////////////////////////////////////////////////////////
 
+/*! @brief GLSL #define container.
+ *  @ingroup opengl
+ */
+class ShaderDefines
+{
+public:
+  void add(const String& name, const String& value = "");
+  String getCacheString() const;
+  String getGLSL() const;
+private:
+  typedef std::vector< std::pair<String, String> > DefineList;
+  DefineList defines;
+};
+
+///////////////////////////////////////////////////////////////////////
+
 /*! @brief GLSL shader.
  *  @ingroup opengl
  */
@@ -79,16 +95,16 @@ public:
                             Context& context,
                             ShaderType type,
                             const String& text,
-                            const String& defines = "",
+                            const ShaderDefines& defines = ShaderDefines(),
                             int version = 100);
   static Ref<Shader> read(Context& context,
                           ShaderType type,
                           const String& name,
-                          const String& defines = "",
+                          const ShaderDefines& defines = ShaderDefines(),
                           int version = 100);
 private:
   Shader(const ResourceInfo& info, Context& context, ShaderType type, int version);
-  bool init(const String& text, const String& defines);
+  bool init(const String& text, const ShaderDefines& defines);
   Context& context;
   ShaderType type;
   int version;
@@ -336,7 +352,7 @@ public:
                            const String& geometryShaderName = "",
                            const String& tessCtrlShaderName = "",
                            const String& tessEvalShaderName = "",
-                           const String& defines = "",
+                           const ShaderDefines& defines = ShaderDefines(),
                            int glslVersion = 100);
 private:
   Program(const ResourceInfo& info, Context& context);

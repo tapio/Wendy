@@ -219,6 +219,41 @@ GLenum convertToGL(ShaderType type)
 
 ///////////////////////////////////////////////////////////////////////
 
+void ShaderDefines::add(const String& name, const String& value)
+{
+  defines.push_back(std::make_pair(name, value));
+}
+
+String ShaderDefines::getCacheString() const
+{
+  if (defines.empty()) return "";
+  String ret = " defines:";
+  for (DefineList::const_iterator it = defines.begin(); it != defines.end(); ++it)
+  {
+    ret += it->first;
+    if (!it->second.empty())
+      ret += " " + it->second;
+    ret += ";";
+  }
+  return ret;
+}
+
+String ShaderDefines::getGLSL() const
+{
+  if (defines.empty()) return "";
+  String ret;
+  for (DefineList::const_iterator it = defines.begin(); it != defines.end(); ++it)
+  {
+    ret += "#define " + it->first;
+    if (!it->second.empty())
+      ret += " " + it->second;
+    ret += "\n";
+  }
+  return ret;
+}
+
+///////////////////////////////////////////////////////////////////////
+
 Shader::~Shader()
 {
   if (shaderID)
@@ -269,7 +304,7 @@ Ref<Shader> Shader::create(const ResourceInfo& info,
                           Context& context,
                           ShaderType type,
                           const String& text,
-                          const String& defines,
+                          const ShaderDefines& defines,
                           int version)
 {
   Ref<Shader> shader(new Shader(info, context, type, version));
@@ -282,13 +317,13 @@ Ref<Shader> Shader::create(const ResourceInfo& info,
 Ref<Shader> Shader::read(Context& context,
                         ShaderType type,
                         const String& name,
-                        const String& defines,
+                        const ShaderDefines& defines,
                         int version)
 {
   ResourceCache& cache = context.getCache();
 
   // TODO: Use version in cache look-up?
-  String nameInCache = name + defines;
+  String nameInCache = name + defines.getCacheString();
   if (Ref<Shader> shader = cache.find<Shader>(nameInCache))
     return shader;
 
@@ -329,7 +364,7 @@ Shader::Shader(const ResourceInfo& info,
 {
 }
 
-bool Shader::init(const String& text, const String& defines)
+bool Shader::init(const String& text, const ShaderDefines& defines)
 {
   String decl;
   if (version > 100)
@@ -343,7 +378,7 @@ bool Shader::init(const String& text, const String& defines)
   }
 
   decl += "#line 0 0\n";
-  decl += defines;
+  decl += defines.getGLSL();
   decl += "\n";
   decl += context.getSharedProgramStateDeclaration();
 
@@ -852,7 +887,7 @@ Ref<Program> Program::read(Context& context,
                            const String& geometryShaderName,
                            const String& tessCtrlShaderName,
                            const String& tessEvalShaderName,
-                           const String &defines,
+                           const ShaderDefines& defines,
                            int glslVersion)
 {
   ResourceCache& cache = context.getCache();
@@ -870,8 +905,7 @@ Ref<Program> Program::read(Context& context,
     name.append(" tc:" + tessCtrlShaderName);
   if (!tessEvalShaderName.empty())
     name.append(" te:" + tessEvalShaderName);
-  if (!defines.empty())
-    name.append(" defines:" + defines);
+  name.append(defines.getCacheString());
 
   if (Ref<Program> program = cache.find<Program>(name))
     return program;
