@@ -36,9 +36,6 @@ namespace wendy
 class Image : public Resource
 {
 public:
-  /*! Returns a copy of this image.
-   */
-  Ref<Image> clone() const;
   /*! Transforms the contents of this image to the specified pixel format using
    *  the specified pixel transform.
    *  @param[in] targetFormat The desired pixel format.
@@ -49,12 +46,8 @@ public:
    *  @param[in] area The desired area.
    *  @return @c true if successful, otherwise @c false.
    *
-   *  @remarks This method fails if the desired area is completely outside the
-   *  current image data.
-   *
-   *  @remarks If the desired area is partially outside of the current image
-   *  data, the area (and the resulting image) is cropped to fit the current
-   *  (existing) image data.
+   *  @remarks This method fails if the desired area is partially or completely
+   *  outside the current image data.
    */
   bool crop(const Recti& area);
   /*! Flips this image along the x axis.
@@ -109,6 +102,9 @@ public:
   unsigned int getDimensionCount() const;
   /*! Returns an image containing the specified area of this image.
    *  @param area The desired area of this image.
+   *
+   *  @remarks This method fails if the desired area is partially or completely
+   *  outside the current image data.
    */
   Ref<Image> getArea(const Recti& area) const;
   /*! Creates an image with the specified properties.
@@ -132,7 +128,7 @@ public:
                            unsigned int height = 1,
                            unsigned int depth = 1,
                            const void* data = NULL,
-                           unsigned int pitch = 0);
+                           ptrdiff_t pitch = 0);
   static Ref<Image> read(ResourceCache& cache, const String& name);
 private:
   Image(const ResourceInfo& info);
@@ -142,7 +138,7 @@ private:
             unsigned int height,
             unsigned int depth,
             const void* data,
-            unsigned int pitch);
+            ptrdiff_t pitch);
   Image& operator = (const Image& source);
   unsigned int width;
   unsigned int height;
