@@ -1,3 +1,4 @@
+#version 330
 
 in vec3 wyPosition;
 in vec3 wyNormal;

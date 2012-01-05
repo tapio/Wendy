@@ -2,7 +2,7 @@
 <material version="8">
   <technique type="forward">
     <pass>
-      <program glsl-version="400" vs="tess.vert" fs="tess.frag" tc="tess.ctrl" te="tess.eval">
+      <program vs="tess.vert" fs="tess.frag" tc="tess.ctrl" te="tess.eval">
         <uniform name="TessLevel" value="16" />
       </program>
     </pass>

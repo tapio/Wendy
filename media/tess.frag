@@ -1,3 +1,4 @@
+#version 400
 // Shader adapted from Triangle Tessellation with OpenGL 4.0
 // http://prideout.net/blog/?p=48
 // Placed into the public domain by Philip Rideout

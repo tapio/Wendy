@@ -2,7 +2,7 @@
 <material version="8">
   <technique type="forward">
     <pass>
-      <program glsl-version="150" vs="geom.vs" fs="geom.fs" gs="geom.gs" />
+      <program vs="geom.vs" fs="geom.fs" gs="geom.gs" />
     </pass>
   </technique>
 </material>

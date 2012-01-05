@@ -1,3 +1,4 @@
+#version 330
 
 in vec3 gPosition;
 in vec3 gNormal;

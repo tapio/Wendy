@@ -342,12 +342,14 @@ bool Shader::init(const String& text)
   }
 
   String shader;
-  if (version > 100)
+
+  if (spp.hasVersion())
   {
-    std::ostringstream stream;
-    stream << version;
-    shader += "#version " + stream.str() + "\n";
+    shader += "#version ";
+    shader += spp.getVersion();
+    shader += "\n";
   }
+
   shader += "#line 0 0 /*shared program state*/\n";
   shader += context.getSharedProgramStateDeclaration();
   shader += spp.getOutput();
