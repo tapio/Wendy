@@ -46,6 +46,8 @@ public:
   vec3 position;
   vec3 normal;
   vec2 texcoord;
+  vec3 tangent;
+  vec3 bitangent;
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -56,6 +58,8 @@ public:
   void setIndices(uint32 a, uint32 b, uint32 c);
   uint32 indices[3];
   vec3 normal;
+  vec3 tangent;
+  vec3 bitangent;
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -114,6 +118,9 @@ public:
   /*! Generates and stores triangle normals for this mesh.
    */
   void generateTriangleNormals();
+  /*! Generates and stores the tangents for this mesh.
+   */
+  void generateTangents();
   /*! Generates the bounding box of this mesh.
    */
   AABB generateBoundingAABB() const;
