@@ -73,23 +73,19 @@ public:
   bool isTessControlShader() const;
   bool isTessEvaluationShader() const;
   ShaderType getType() const;
-  int getVersion() const;
   Context& getContext() const;
   static Ref<Shader> create(const ResourceInfo& info,
                             Context& context,
                             ShaderType type,
-                            const String& text,
-                            int version = 100);
+                            const String& text);
   static Ref<Shader> read(Context& context,
                           ShaderType type,
-                          const String& name,
-                          int version = 100);
+                          const String& name);
 private:
-  Shader(const ResourceInfo& info, Context& context, ShaderType type, int version);
+  Shader(const ResourceInfo& info, Context& context, ShaderType type);
   bool init(const String& text);
   Context& context;
   ShaderType type;
-  int version;
   unsigned int shaderID;
 };
 
@@ -333,8 +329,7 @@ public:
                            const String& fragmentShaderName,
                            const String& geometryShaderName = "",
                            const String& tessCtrlShaderName = "",
-                           const String& tessEvalShaderName = "",
-                           int glslVersion = 100);
+                           const String& tessEvalShaderName = "");
 private:
   Program(const ResourceInfo& info, Context& context);
   Program(const Program& source);

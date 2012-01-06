@@ -257,23 +257,17 @@ ShaderType Shader::getType() const
   return type;
 }
 
-int Shader::getVersion() const
-{
-  return version;
-}
-
 Context& Shader::getContext() const
 {
   return context;
 }
 
 Ref<Shader> Shader::create(const ResourceInfo& info,
-                          Context& context,
-                          ShaderType type,
-                          const String& text,
-                          int version)
+                           Context& context,
+                           ShaderType type,
+                           const String& text)
 {
-  Ref<Shader> shader(new Shader(info, context, type, version));
+  Ref<Shader> shader(new Shader(info, context, type));
   if (!shader->init(text))
     return NULL;
 
@@ -281,13 +275,11 @@ Ref<Shader> Shader::create(const ResourceInfo& info,
 }
 
 Ref<Shader> Shader::read(Context& context,
-                        ShaderType type,
-                        const String& name,
-                        int version)
+                         ShaderType type,
+                         const String& name)
 {
   ResourceCache& cache = context.getCache();
 
-  // TODO: Use version in cache look-up?
   if (Ref<Shader> shader = cache.find<Shader>(name))
     return shader;
 
@@ -313,17 +305,15 @@ Ref<Shader> Shader::read(Context& context,
   stream.seekg(0, std::ios::beg);
   stream.read(&text[0], text.size());
 
-  return create(ResourceInfo(cache, name), context, type, text, version);
+  return create(ResourceInfo(cache, name), context, type, text);
 }
 
 Shader::Shader(const ResourceInfo& info,
                Context& initContext,
-               ShaderType initType,
-               int initVersion):
+               ShaderType initType):
   Resource(info),
   context(initContext),
   type(initType),
-  version(initVersion),
   shaderID(0)
 {
 }
@@ -851,12 +841,9 @@ Ref<Program> Program::read(Context& context,
                            const String& fragmentShaderName,
                            const String& geometryShaderName,
                            const String& tessCtrlShaderName,
-                           const String& tessEvalShaderName,
-                           int glslVersion)
+                           const String& tessEvalShaderName)
 {
   ResourceCache& cache = context.getCache();
-
-  // TODO: Use version in name?
 
   String name;
   name.append("vs:");
@@ -873,18 +860,18 @@ Ref<Program> Program::read(Context& context,
   if (Ref<Program> program = cache.find<Program>(name))
     return program;
 
-  Ref<Shader> vertexShader = Shader::read(context, VERTEX_SHADER, vertexShaderName, glslVersion);
+  Ref<Shader> vertexShader = Shader::read(context, VERTEX_SHADER, vertexShaderName);
   if (!vertexShader)
     return NULL;
 
-  Ref<Shader> fragmentShader = Shader::read(context, FRAGMENT_SHADER, fragmentShaderName, glslVersion);
+  Ref<Shader> fragmentShader = Shader::read(context, FRAGMENT_SHADER, fragmentShaderName);
   if (!fragmentShader)
     return NULL;
 
   Ref<Shader> geometryShader = NULL;
   if (!geometryShaderName.empty())
   {
-    geometryShader = Shader::read(context, GEOMETRY_SHADER, geometryShaderName, glslVersion);
+    geometryShader = Shader::read(context, GEOMETRY_SHADER, geometryShaderName);
     if (!geometryShader)
       return NULL;
   }
@@ -893,10 +880,10 @@ Ref<Program> Program::read(Context& context,
   Ref<Shader> tessEvalShader = NULL;
   if (!tessCtrlShaderName.empty() && !tessEvalShaderName.empty())
   {
-    tessCtrlShader = Shader::read(context, TESS_CONTROL_SHADER, tessCtrlShaderName, glslVersion);
+    tessCtrlShader = Shader::read(context, TESS_CONTROL_SHADER, tessCtrlShaderName);
     if (!tessCtrlShader)
       return NULL;
-    tessEvalShader = Shader::read(context, TESS_EVALUATION_SHADER, tessEvalShaderName, glslVersion);
+    tessEvalShader = Shader::read(context, TESS_EVALUATION_SHADER, tessEvalShaderName);
     if (!tessEvalShader)
       return NULL;
 
