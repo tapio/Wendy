@@ -110,8 +110,9 @@ void Renderer::render(const render::Scene& scene, const render::Camera& camera)
   if (ambient.r > 0.f || ambient.g > 0.f || ambient.b > 0.f)
     renderAmbientLight(camera, ambient);
 
-  for (unsigned int i = 0;  i < scene.getLightCount();  i++)
-    renderLight(camera, scene.getLight(i));
+  const render::LightList& lights = scene.getLights();
+  for (unsigned int i = 0;  i < lights.size();  i++)
+    renderLight(camera, *lights[i]);
 
   context.setCurrentSharedProgramState(prevState);
 }

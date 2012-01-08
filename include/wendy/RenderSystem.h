@@ -40,12 +40,13 @@ namespace wendy
 
 ///////////////////////////////////////////////////////////////////////
 
+/*! @ingroup renderer
+ */
 class System : public RefObject
 {
 public:
   enum Type
   {
-    SIMPLE,
     FORWARD,
     DEFERRED
   };

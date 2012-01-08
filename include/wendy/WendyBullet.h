@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////
-// Wendy default renderer
-// Copyright (c) 2008 Camilla Berglund <elmindreda@elmindreda.org>
+// Wendy Bullet helpers
+// Copyright (c) 2012 Camilla Berglund <elmindreda@elmindreda.org>
 //
 // This software is provided 'as-is', without any express or implied
 // warranty. In no event will the authors be held liable for any
@@ -22,58 +22,27 @@
 //     distribution.
 //
 ///////////////////////////////////////////////////////////////////////
-#ifndef WENDY_RENDERLIGHT_H
-#define WENDY_RENDERLIGHT_H
+#ifndef WENDY_WENDYBULLET_H
+#define WENDY_WENDYBULLET_H
 ///////////////////////////////////////////////////////////////////////
 
-namespace wendy
-{
-  namespace render
-  {
-
-///////////////////////////////////////////////////////////////////////
-
-/*! @ingroup renderer
+/*! @defgroup bullet Bullet helper API
+ *
+ *  This module provides functions and classes that make it easier to use Wendy
+ *  and Bullet together in an application.  It makes no attempt to wrap Bullet,
+ *  as it already provides a good C++ API.
  */
-class Light : public RefObject
-{
-public:
-  enum Type
-  {
-    DIRECTIONAL,
-    POINT,
-    SPOTLIGHT
-  };
-  Light();
-  Type getType() const;
-  void setType(Type newType);
-  float getRadius() const;
-  void setRadius(float newRadius);
-  const vec3& getColor() const;
-  void setColor(const vec3& newColor);
-  const vec3& getPosition() const;
-  void setPosition(const vec3& newPosition);
-  const vec3& getDirection() const;
-  void setDirection(const vec3& newDirection);
-private:
-  Type type;
-  float radius;
-  vec3 color;
-  vec3 position;
-  vec3 direction;
-};
 
 ///////////////////////////////////////////////////////////////////////
 
-/*! @ingroup renderer
- */
-typedef std::vector<Ref<Light> > LightList;
+#if WENDY_INCLUDE_BULLET
+
+#include <wendy/Bullet.h>
+
+#else
+#error "Bullet module not enabled"
+#endif
 
 ///////////////////////////////////////////////////////////////////////
-
-  } /*namespace render*/
-} /*namespace wendy*/
-
-///////////////////////////////////////////////////////////////////////
-#endif /*WENDY_RENDERLIGHT_H*/
+#endif /*WENDY_WENDYBULLET_H*/
 ///////////////////////////////////////////////////////////////////////

@@ -344,8 +344,8 @@ bool Shader::init(const String& text)
   shader += context.getSharedProgramStateDeclaration();
   shader += spp.getOutput();
 
-  GLsizei lengths[2];
-  const GLchar* strings[2];
+  GLsizei lengths[1];
+  const GLchar* strings[1];
 
   lengths[0] = shader.length();
   strings[0] = (const GLchar*) shader.c_str();
@@ -846,16 +846,16 @@ Ref<Program> Program::read(Context& context,
   ResourceCache& cache = context.getCache();
 
   String name;
-  name.append("vs:");
-  name.append(vertexShaderName);
-  name.append(" fs:");
-  name.append(fragmentShaderName);
+  name += "vs:";
+  name += vertexShaderName;
+  name += " fs:";
+  name += fragmentShaderName;
   if (!geometryShaderName.empty())
-    name.append(" gs:" + geometryShaderName);
+    name += " gs:" + geometryShaderName;
   if (!tessCtrlShaderName.empty())
-    name.append(" tc:" + tessCtrlShaderName);
+    name += " tc:" + tessCtrlShaderName;
   if (!tessEvalShaderName.empty())
-    name.append(" te:" + tessEvalShaderName);
+    name += " te:" + tessEvalShaderName;
 
   if (Ref<Program> program = cache.find<Program>(name))
     return program;

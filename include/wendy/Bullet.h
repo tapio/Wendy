@@ -38,15 +38,6 @@ namespace wendy
 
 ///////////////////////////////////////////////////////////////////////
 
-/*! @defgroup bullet Bullet helper API
- *
- *  This module provides functions and classes that make it easier to use Wendy
- *  and Bullet together in an application.  It makes no attempt to wrap Bullet,
- *  as it already provides a good C++ API.
- */
-
-///////////////////////////////////////////////////////////////////////
-
 /*! @ingroup bullet
  */
 Transform3 convert(const btTransform& transform, float scale = 1.f);
@@ -87,7 +78,7 @@ class BvhMeshShapeReader : public ResourceReader<BvhMeshShape>
 {
 public:
   BvhMeshShapeReader(ResourceCache& cache);
-  using ResourceReader::read;
+  using ResourceReader<BvhMeshShape>::read;
   Ref<BvhMeshShape> read(const String& name, const Path& path);
 };
 
