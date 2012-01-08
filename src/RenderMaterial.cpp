@@ -128,7 +128,7 @@ Material::Material(const ResourceInfo& info):
 ///////////////////////////////////////////////////////////////////////
 
 MaterialReader::MaterialReader(System& initSystem):
-  ResourceReader(initSystem.getCache()),
+  ResourceReader<Material>(initSystem.getCache()),
   system(initSystem)
 {
   if (cullModeMap.isEmpty())
@@ -452,17 +452,12 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
         const String tessCtrlShaderName(node.attribute("tc").value());
         const String tessEvalShaderName(node.attribute("te").value());
 
-        int glslVersion = GL::Shader::DefaultVersion;
-        if (pugi::xml_attribute a = node.attribute("glsl-version"))
-          glslVersion = a.as_int();
-
         Ref<GL::Program> program = GL::Program::read(context,
                                                      vertexShaderName,
                                                      fragmentShaderName,
                                                      geometryShaderName,
                                                      tessCtrlShaderName,
-                                                     tessEvalShaderName,
-                                                     glslVersion);
+                                                     tessEvalShaderName);
         if (!program)
         {
           logError("Failed to load GLSL program for material \'%s\'",

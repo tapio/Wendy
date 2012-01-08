@@ -162,10 +162,9 @@ bool Image::transformTo(const PixelFormat& targetFormat, PixelTransform& transfo
   if (!transform.supports(targetFormat, format))
     return false;
 
-  Block target(width * height * depth * targetFormat.getSize());
-  transform.convert(target, targetFormat, data, format, width * height * depth);
-  data.attach(target.detach(), target.getSize());
-
+  Block temp(width * height * depth * targetFormat.getSize());
+  transform.convert(temp, targetFormat, data, format, width * height * depth);
+  data.attach(temp.detach(), temp.getSize());
   format = targetFormat;
   return true;
 }
@@ -185,68 +184,64 @@ bool Image::crop(const Recti& area)
   }
 
   const size_t pixelSize = format.getSize();
-  Block scratch(area.size.x * area.size.y * pixelSize);
+  Block temp(area.size.x * area.size.y * pixelSize);
 
   for (size_t y = 0;  y < area.size.y;  y++)
   {
-    scratch.copyFrom(data + ((y + area.position.y) * width + area.position.x) * pixelSize,
-                     area.size.x * pixelSize,
-                     y * area.size.x * pixelSize);
+    std::memcpy(temp + y * area.size.x * pixelSize,
+                data + ((y + area.position.y) * width + area.position.x) * pixelSize,
+                area.size.x * pixelSize);
   }
 
   width = area.size.x;
   height = area.size.y;
 
-  data.attach(scratch.detach(), scratch.getSize());
+  data.attach(temp.detach(), temp.getSize());
   return true;
 }
 
 void Image::flipHorizontal()
 {
-  const size_t pixelSize = format.getSize();
-
-  Block scratch(data.getSize());
+  const size_t rowSize = width * format.getSize();
+  Block temp(data.getSize());
 
   for (size_t z = 0;  z < depth;  z++)
   {
-    size_t offset = z * width * height * pixelSize;
+    const size_t sliceOffset = z * height * rowSize;
 
     for (size_t y = 0;  y < height;  y++)
     {
-      scratch.copyFrom(data + offset + y * width * pixelSize,
-                       width * pixelSize,
-                       offset + (height - y - 1) * width * pixelSize);
+      std::memcpy(temp + sliceOffset + rowSize * (height - y - 1),
+                  data + sliceOffset + rowSize * y,
+                  rowSize);
     }
   }
 
-  data.attach(scratch.detach(), scratch.getSize());
+  data.attach(temp.detach(), temp.getSize());
 }
 
 void Image::flipVertical()
 {
   const size_t pixelSize = format.getSize();
-
-  Block scratch(data.getSize());
+  Block temp(data.getSize());
 
   for (size_t z = 0;  z < depth;  z++)
   {
     for (size_t y = 0;  y < height;  y++)
     {
       const uint8* source = data + (z * height + y) * width * pixelSize;
-      uint8* target = scratch + ((z * height + y + 1) * width - 1) * pixelSize;
+      uint8* target = temp + ((z * height + y + 1) * width - 1) * pixelSize;
 
       while (source < target)
       {
-        for (size_t i = 0;  i < pixelSize;  i++)
-          target[i] = source[i];
-
+        std::memcpy(target, source, pixelSize);
         source += pixelSize;
         target -= pixelSize;
       }
     }
   }
 
-  data.attach(scratch.detach(), scratch.getSize());
+  data.attach(temp.detach(), temp.getSize());
 }
 
 bool Image::isPOT() const
@@ -426,10 +421,7 @@ bool Image::init(const PixelFormat& initFormat,
       }
     }
     else
-    {
-      data.copyFrom((const uint8*) initData,
-                    width * height * depth * format.getSize());
-    }
+      std::memcpy(data, initData, width * height * depth * format.getSize());
   }
   else
   {
@@ -455,7 +447,7 @@ Image& Image::operator = (const Image& source)
 ///////////////////////////////////////////////////////////////////////
 
 ImageReader::ImageReader(ResourceCache& cache):
-  ResourceReader(cache)
+  ResourceReader<Image>(cache)
 {
 }
 
@@ -464,7 +456,7 @@ Ref<Image> ImageReader::read(const String& name, const Path& path)
   std::ifstream stream(path.asString().c_str(), std::ios::in | std::ios::binary);
   if (stream.fail())
   {
-    logError("Failed to open image \'%s\'", name.c_str());
+    logError("Failed to open image file \'%s\'", path.asString().c_str());
     return NULL;
   }
 
@@ -474,13 +466,13 @@ Ref<Image> ImageReader::read(const String& name, const Path& path)
 
     if (!stream.read((char*) header, sizeof(header)))
     {
-      logError("Failed to read PNG file header in \'%s\'", name.c_str());
+      logError("Failed to read PNG header from image \'%s\'", name.c_str());
       return NULL;
     }
 
     if (png_sig_cmp(header, 0, sizeof(header)))
     {
-      logError("Invalid PNG signature in \'%s\'", name.c_str());
+      logError("Invalid PNG signature in image \'%s\'", name.c_str());
       return NULL;
     }
   }
@@ -497,7 +489,8 @@ Ref<Image> ImageReader::read(const String& name, const Path& path)
                                      writeWarningPNG);
     if (!context)
     {
-      logError("Failed to create PNG read struct for \'%s\'", name.c_str());
+      logError("Failed to create PNG read struct for image \'%s\'",
+               name.c_str());
       return NULL;
     }
 
@@ -508,7 +501,8 @@ Ref<Image> ImageReader::read(const String& name, const Path& path)
     {
       png_destroy_read_struct(&context, NULL, NULL);
 
-      logError("Failed to create PNG info struct for \'%s\'", name.c_str());
+      logError("Failed to create PNG info struct for image \'%s\'",
+               name.c_str());
       return NULL;
     }
 
@@ -517,7 +511,8 @@ Ref<Image> ImageReader::read(const String& name, const Path& path)
     {
       png_destroy_read_struct(&context, &pngInfo, NULL);
 
-      logError("Failed to create PNG end info struct for \'%s\'", name.c_str());
+      logError("Failed to create PNG end info struct for image \'%s\'",
+               name.c_str());
       return NULL;
     }
 
@@ -571,8 +566,7 @@ bool ImageWriter::write(const Path& path, const Image& image)
   std::ofstream stream(path.asString().c_str());
   if (!stream.is_open())
   {
-    logError("Failed to open \'%s\' for writing",
-             path.asString().c_str());
+    logError("Failed to create image file \'%s\'", path.asString().c_str());
     return false;
   }
 
@@ -582,7 +576,8 @@ bool ImageWriter::write(const Path& path, const Image& image)
                                                 writeWarningPNG);
   if (!context)
   {
-    logError("Failed to create write struct");
+    logError("Failed to create PNG write struct for image file \'%s\'",
+             path.asString().c_str());
     return false;
   }
 
@@ -593,7 +588,8 @@ bool ImageWriter::write(const Path& path, const Image& image)
   if (!info)
   {
     png_destroy_write_struct(&context, png_infopp(NULL));
-    logError("Failed to create info struct");
+    logError("Failed to create PNG info struct for image file \'%s\'",
+             path.asString().c_str());
     return false;
   }
 
@@ -605,7 +601,8 @@ bool ImageWriter::write(const Path& path, const Image& image)
       !convertToBitDepth(bitDepth, format))
   {
     png_destroy_write_struct(&context, &info);
-    logError("Pixel format \'%s\' is not supported by the PNG format",
+    logError("Failed to write image \'%s\': pixel format \'%s\' is not supported by the PNG format",
+             image.getName().c_str(),
              format.asString().c_str());
     return false;
   }

@@ -472,7 +472,7 @@ Ref<Mesh> Mesh::read(ResourceCache& cache, const String& name)
 ///////////////////////////////////////////////////////////////////////
 
 MeshReader::MeshReader(ResourceCache& index):
-  ResourceReader(index)
+  ResourceReader<Mesh>(index)
 {
 }
 
