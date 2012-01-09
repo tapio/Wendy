@@ -221,6 +221,41 @@ GLenum convertToGL(ShaderType type)
 
 ///////////////////////////////////////////////////////////////////////
 
+void ShaderDefines::add(const String& name, const String& value)
+{
+  defines.push_back(std::make_pair(name, value));
+}
+
+String ShaderDefines::getCacheString() const
+{
+  if (defines.empty()) return "";
+  String ret = " defines:";
+  for (DefineList::const_iterator it = defines.begin(); it != defines.end(); ++it)
+  {
+    ret += it->first;
+    if (!it->second.empty())
+      ret += " " + it->second;
+    ret += ";";
+  }
+  return ret;
+}
+
+String ShaderDefines::getGLSL() const
+{
+  if (defines.empty()) return "";
+  String ret;
+  for (DefineList::const_iterator it = defines.begin(); it != defines.end(); ++it)
+  {
+    ret += "#define " + it->first;
+    if (!it->second.empty())
+      ret += " " + it->second;
+    ret += "\n";
+  }
+  return ret;
+}
+
+///////////////////////////////////////////////////////////////////////
+
 Shader::~Shader()
 {
   if (shaderID)
@@ -263,24 +298,27 @@ Context& Shader::getContext() const
 }
 
 Ref<Shader> Shader::create(const ResourceInfo& info,
-                           Context& context,
-                           ShaderType type,
-                           const String& text)
+                          Context& context,
+                          ShaderType type,
+                          const String& text,
+                          const ShaderDefines& defines)
 {
   Ref<Shader> shader(new Shader(info, context, type));
-  if (!shader->init(text))
+  if (!shader->init(text, defines))
     return NULL;
 
   return shader;
 }
 
 Ref<Shader> Shader::read(Context& context,
-                         ShaderType type,
-                         const String& name)
+                        ShaderType type,
+                        const String& name,
+                        const ShaderDefines& defines)
 {
   ResourceCache& cache = context.getCache();
 
-  if (Ref<Shader> shader = cache.find<Shader>(name))
+  String nameInCache = name + defines.getCacheString();
+  if (Ref<Shader> shader = cache.find<Shader>(nameInCache))
     return shader;
 
   const Path path = cache.findFile(name);
@@ -305,7 +343,7 @@ Ref<Shader> Shader::read(Context& context,
   stream.seekg(0, std::ios::beg);
   stream.read(&text[0], text.size());
 
-  return create(ResourceInfo(cache, name), context, type, text);
+  return create(ResourceInfo(cache, nameInCache), context, type, text, defines);
 }
 
 Shader::Shader(const ResourceInfo& info,
@@ -318,7 +356,7 @@ Shader::Shader(const ResourceInfo& info,
 {
 }
 
-bool Shader::init(const String& text)
+bool Shader::init(const String& text, const ShaderDefines& defines)
 {
   ShaderPreprocessor spp(getCache());
 
@@ -341,6 +379,7 @@ bool Shader::init(const String& text)
   }
 
   shader += "#line 0 0 /*shared program state*/\n";
+  shader += defines.getGLSL() + "\n";
   shader += context.getSharedProgramStateDeclaration();
   shader += spp.getOutput();
 
@@ -841,7 +880,8 @@ Ref<Program> Program::read(Context& context,
                            const String& fragmentShaderName,
                            const String& geometryShaderName,
                            const String& tessCtrlShaderName,
-                           const String& tessEvalShaderName)
+                           const String& tessEvalShaderName,
+                           const ShaderDefines& defines)
 {
   ResourceCache& cache = context.getCache();
 
@@ -856,22 +896,23 @@ Ref<Program> Program::read(Context& context,
     name += " tc:" + tessCtrlShaderName;
   if (!tessEvalShaderName.empty())
     name += " te:" + tessEvalShaderName;
+  name += defines.getCacheString();
 
   if (Ref<Program> program = cache.find<Program>(name))
     return program;
 
-  Ref<Shader> vertexShader = Shader::read(context, VERTEX_SHADER, vertexShaderName);
+  Ref<Shader> vertexShader = Shader::read(context, VERTEX_SHADER, vertexShaderName, defines);
   if (!vertexShader)
     return NULL;
 
-  Ref<Shader> fragmentShader = Shader::read(context, FRAGMENT_SHADER, fragmentShaderName);
+  Ref<Shader> fragmentShader = Shader::read(context, FRAGMENT_SHADER, fragmentShaderName, defines);
   if (!fragmentShader)
     return NULL;
 
   Ref<Shader> geometryShader = NULL;
   if (!geometryShaderName.empty())
   {
-    geometryShader = Shader::read(context, GEOMETRY_SHADER, geometryShaderName);
+    geometryShader = Shader::read(context, GEOMETRY_SHADER, geometryShaderName, defines);
     if (!geometryShader)
       return NULL;
   }
@@ -880,10 +921,10 @@ Ref<Program> Program::read(Context& context,
   Ref<Shader> tessEvalShader = NULL;
   if (!tessCtrlShaderName.empty() && !tessEvalShaderName.empty())
   {
-    tessCtrlShader = Shader::read(context, TESS_CONTROL_SHADER, tessCtrlShaderName);
+    tessCtrlShader = Shader::read(context, TESS_CONTROL_SHADER, tessCtrlShaderName, defines);
     if (!tessCtrlShader)
       return NULL;
-    tessEvalShader = Shader::read(context, TESS_EVALUATION_SHADER, tessEvalShaderName);
+    tessEvalShader = Shader::read(context, TESS_EVALUATION_SHADER, tessEvalShaderName, defines);
     if (!tessEvalShader)
       return NULL;
 

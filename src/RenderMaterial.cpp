@@ -452,12 +452,19 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
         const String tessCtrlShaderName(node.attribute("tc").value());
         const String tessEvalShaderName(node.attribute("te").value());
 
+        GL::ShaderDefines programDefines;
+        for (pugi::xml_node d = node.child("define");  d;  d = d.next_sibling("define"))
+        {
+          programDefines.add(d.attribute("name").value(), d.attribute("value").value());
+        }
+
         Ref<GL::Program> program = GL::Program::read(context,
                                                      vertexShaderName,
                                                      fragmentShaderName,
                                                      geometryShaderName,
                                                      tessCtrlShaderName,
-                                                     tessEvalShaderName);
+                                                     tessEvalShaderName,
+                                                     programDefines);
         if (!program)
         {
           logError("Failed to load GLSL program for material \'%s\'",
