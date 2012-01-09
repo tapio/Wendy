@@ -314,8 +314,6 @@ void Mesh::generateTangents()
   // Terathon Software 3D Graphics Library, 2001.
   // http://www.terathon.com/code/tangent.html
 
-  // TODO: Clear previous tangents
-
   std::vector<vec3> tan1(vertices.size(), vec3(0,0,0));
   std::vector<vec3> tan2(vertices.size(), vec3(0,0,0));
 
