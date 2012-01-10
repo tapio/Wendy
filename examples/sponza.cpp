@@ -44,6 +44,7 @@ private:
   Timer timer;
   Time currentTime;
   ivec2 lastPosition;
+  Ptr<btTriangleMesh> sponzaBtMesh;
   Ptr<btCollisionShape> sponzaShape;
   Ptr<btCollisionShape> cameraShape;
   Ptr<btCollisionShape> vaseShape;
@@ -137,7 +138,8 @@ bool Demo::init()
   {
     MeshReader reader(cache);
     Ref<Mesh> sponzaObj = reader.read("sponza.obj");
-    sponzaShape = new btBvhTriangleMeshShape(bullet::convert(*sponzaObj, false), true);
+    sponzaBtMesh = bullet::convert(*sponzaObj, false);
+    sponzaShape = new btBvhTriangleMeshShape(sponzaBtMesh, true);
 
     btTransform transform;
     transform.setIdentity();
