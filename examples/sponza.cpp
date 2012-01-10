@@ -47,6 +47,7 @@ private:
   Ptr<btCollisionShape> sponzaShape;
   Ptr<btCollisionShape> cameraShape;
   Ptr<btCollisionShape> vaseShape;
+  Ptr<btCollisionShape> barrelShape;
   std::vector< Ref<Entity> > entities;
   Ptr<btRigidBody> cameraBody;
   Ptr<btBroadphaseInterface> broadphase;
@@ -146,46 +147,89 @@ bool Demo::init()
     dynamicsWorld->addRigidBody(body);
   }
 
-  Ref<render::Model> model = render::Model::read(*renderer, "vase_round.model");
-  if (!model)
-    return false;
-
-  //MeshReader vaseReader(cache);
-  //Ref<Mesh> vaseObj = vaseReader.read(Path("vase_round.obj"));
-  //vaseShape = new btBvhTriangleMeshShape(bullet::convert(*vaseObj), true);
-  vaseShape = new btBoxShape(btVector3(2., 3.5, 2.));
-
-  btScalar vaseMass(100.f);
-  btVector3 vaseLocalInertia(0,0,0);
-  vaseShape->calculateLocalInertia(vaseMass, vaseLocalInertia);
-
-  const int numVases = 6;
-  float vasePos[numVases * 2] = {
-    -61.5f, -21.f,
-    -25.0f, -21.f,
-     12.0f, -21.f,
-     48.5f,  14.f,
-     12.0f,  14.f,
-    -25.0f,  14.f
-  };
-  for (int i = 0; i < numVases; ++i)
   {
-    entities.push_back(new Entity());
-    Entity& entity = *entities.back();
-    entity.model = new scene::ModelNode();
-    entity.model->setModel(model);
-    entity.model->setLocalPosition(vec3(vasePos[i*2], 3.7f, vasePos[i*2+1]));
-    graph.addRootNode(*entity.model);
+    Ref<render::Model> model = render::Model::read(*renderer, "vase_round.model");
+    if (!model)
+      return false;
+    
+    //MeshReader reader(cache);
+    //Ref<Mesh> obj = reader.read("vase_round.obj");
+    //vaseShape = new btBvhTriangleMeshShape(bullet::convert(*obj), true);
+    vaseShape = new btBoxShape(btVector3(2., 3.4, 2.));
+    
+    btScalar vaseMass(100.f);
+    btVector3 vaseLocalInertia(0,0,0);
+    vaseShape->calculateLocalInertia(vaseMass, vaseLocalInertia);
+    
+    const int numVases = 6;
+    float vasePos[numVases * 2] = {
+      -61.5f, -21.f,
+      -25.0f, -21.f,
+      12.0f, -21.f,
+      48.5f,  14.f,
+      12.0f,  14.f,
+      -25.0f,  14.f
+    };
+    for (int i = 0; i < numVases; ++i)
+    {
+      entities.push_back(new Entity());
+      Entity& entity = *entities.back();
+      entity.model = new scene::ModelNode();
+      entity.model->setModel(model);
+      entity.model->setLocalPosition(vec3(vasePos[i*2], 3.7f, vasePos[i*2+1]));
+      graph.addRootNode(*entity.model);
+      
+      btTransform transform;
+      transform.setIdentity();
+      transform.setOrigin(bullet::convert(entity.model->getLocalTransform().position));
+      
+      btDefaultMotionState* motionState = new btDefaultMotionState(transform);
+      btRigidBody::btRigidBodyConstructionInfo rbInfo(vaseMass, motionState, vaseShape, vaseLocalInertia);
+      rbInfo.m_friction = 0.9f;
+      entity.body = new btRigidBody(rbInfo);
+      dynamicsWorld->addRigidBody(entity.body);
+    }
+  }
 
-    btTransform transform;
-    transform.setIdentity();
-    transform.setOrigin(bullet::convert(entity.model->getLocalTransform().position));
-
-    btDefaultMotionState* motionState = new btDefaultMotionState(transform);
-    btRigidBody::btRigidBodyConstructionInfo rbInfo(vaseMass, motionState, vaseShape, vaseLocalInertia);
-    rbInfo.m_friction = 0.9f;
-    entity.body = new btRigidBody(rbInfo);
-    dynamicsWorld->addRigidBody(entity.body);
+  {
+    Ref<render::Model> model = render::Model::read(*renderer, "barrel.model");
+    if (!model)
+      return false;
+    
+    //MeshReader reader(cache);
+    //Ref<Mesh> obj = reader.read("barrel.obj");
+    //barrelShape = new btBvhTriangleMeshShape(bullet::convert(*obj), true);
+    barrelShape = new btCylinderShape(btVector3(2.5, 3.2, 2.5));
+    
+    btScalar mass(50.f);
+    btVector3 localInertia(0,0,0);
+    barrelShape->calculateLocalInertia(mass, localInertia);
+    
+    const int num = 3;
+    float pos[num * 2] = {
+       -10.f, 0.f,
+      -100.f, 10.f,
+      -134.5f, -25.f
+    };
+    for (int i = 0; i < num; ++i)
+    {
+      entities.push_back(new Entity());
+      Entity& entity = *entities.back();
+      entity.model = new scene::ModelNode();
+      entity.model->setModel(model);
+      entity.model->setLocalPosition(vec3(pos[i*2], 3.7f, pos[i*2+1]));
+      graph.addRootNode(*entity.model);
+      
+      btTransform transform;
+      transform.setIdentity();
+      transform.setOrigin(bullet::convert(entity.model->getLocalTransform().position));
+      
+      btDefaultMotionState* motionState = new btDefaultMotionState(transform);
+      btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, motionState, barrelShape, localInertia);
+      rbInfo.m_friction = 0.9f;
+      entity.body = new btRigidBody(rbInfo);
+      dynamicsWorld->addRigidBody(entity.body);
+    }
   }
 
   cameraShape = new btSphereShape(btScalar(3.));
