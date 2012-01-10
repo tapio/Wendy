@@ -82,7 +82,7 @@ btVector3 convert(const vec3& vector)
   return btVector3(vector.x, vector.y, vector.z);
 }
 
-btTriangleMesh* convert(const Mesh& data)
+btTriangleMesh* convert(const Mesh& data, bool removeDuplicateVertices)
 {
   btTriangleMesh* mesh;
 
@@ -102,7 +102,7 @@ btTriangleMesh* convert(const Mesh& data)
       mesh->addTriangle(convert(data.vertices[t->indices[0]].position),
                         convert(data.vertices[t->indices[1]].position),
                         convert(data.vertices[t->indices[2]].position),
-                        true);
+                        removeDuplicateVertices);
     }
   }
 

@@ -9,6 +9,16 @@ using namespace wendy;
 namespace
 {
 
+struct Entity: public RefObject {
+  Ptr<btRigidBody> body;
+  scene::ModelNode* model; // Deleted by scene::Graph
+  Entity(): RefObject() {}
+  void syncModelFromBody()
+  {
+    model->setLocalTransform(bullet::convert(body->getCenterOfMassTransform()));
+  }
+};
+
 class Demo : public Trackable, public input::Target
 {
 public:
@@ -34,6 +44,16 @@ private:
   Timer timer;
   Time currentTime;
   ivec2 lastPosition;
+  Ptr<btCollisionShape> sponzaShape;
+  Ptr<btCollisionShape> cameraShape;
+  Ptr<btCollisionShape> vaseShape;
+  std::vector< Ref<Entity> > entities;
+  Ptr<btRigidBody> cameraBody;
+  Ptr<btBroadphaseInterface> broadphase;
+  Ptr<btCollisionDispatcher> dispatcher;
+  Ptr<btConstraintSolver> solver;
+  Ptr<btDefaultCollisionConfiguration> collisionConfiguration;
+  Ptr<btDiscreteDynamicsWorld> dynamicsWorld;
   bool quitting;
   bool drawdebug;
 };
@@ -94,13 +114,96 @@ bool Demo::init()
   if (!renderer)
     return false;
 
-  Ref<render::Model> model = render::Model::read(*renderer, "sponza.model");
+  Ref<render::Model> sponzaModel = render::Model::read(*renderer, "sponza.model");
+  if (!sponzaModel)
+    return false;
+
+  scene::ModelNode* sponzaNode = new scene::ModelNode();
+  sponzaNode->setModel(sponzaModel);
+  graph.addRootNode(*sponzaNode);
+
+  // Collision configuration contains default setup for memory, collision setup
+  collisionConfiguration = new btDefaultCollisionConfiguration();
+  // Use the default collision dispatcher. For parallel processing you can use a diffent dispatcher (see Extras/BulletMultiThreaded)
+  dispatcher = new btCollisionDispatcher(collisionConfiguration);
+  broadphase = new btDbvtBroadphase();
+  // The default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)
+  btSequentialImpulseConstraintSolver* sol = new btSequentialImpulseConstraintSolver;
+  solver = sol;
+  dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
+  dynamicsWorld->setGravity(btVector3(0,-10.f,0));
+
+  {
+    MeshReader reader(cache);
+    Ref<Mesh> sponzaObj = reader.read("sponza.obj");
+    sponzaShape = new btBvhTriangleMeshShape(bullet::convert(*sponzaObj, false), true);
+
+    btTransform transform;
+    transform.setIdentity();
+    btScalar mass(0.); // Static object
+    btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, NULL, sponzaShape);
+    btRigidBody* body = new btRigidBody(rbInfo);
+    dynamicsWorld->addRigidBody(body);
+  }
+
+  Ref<render::Model> model = render::Model::read(*renderer, "vase_round.model");
   if (!model)
     return false;
 
-  scene::ModelNode* modelNode = new scene::ModelNode();
-  modelNode->setModel(model);
-  graph.addRootNode(*modelNode);
+  //MeshReader vaseReader(cache);
+  //Ref<Mesh> vaseObj = vaseReader.read(Path("vase_round.obj"));
+  //vaseShape = new btBvhTriangleMeshShape(bullet::convert(*vaseObj), true);
+  vaseShape = new btBoxShape(btVector3(2., 3.5, 2.));
+
+  btScalar vaseMass(100.f);
+  btVector3 vaseLocalInertia(0,0,0);
+  vaseShape->calculateLocalInertia(vaseMass, vaseLocalInertia);
+
+  const int numVases = 6;
+  float vasePos[numVases * 2] = {
+    -61.5f, -21.f,
+    -25.0f, -21.f,
+     12.0f, -21.f,
+     48.5f,  14.f,
+     12.0f,  14.f,
+    -25.0f,  14.f
+  };
+  for (int i = 0; i < numVases; ++i)
+  {
+    entities.push_back(new Entity());
+    Entity& entity = *entities.back();
+    entity.model = new scene::ModelNode();
+    entity.model->setModel(model);
+    entity.model->setLocalPosition(vec3(vasePos[i*2], 3.7f, vasePos[i*2+1]));
+    graph.addRootNode(*entity.model);
+
+    btTransform transform;
+    transform.setIdentity();
+    transform.setOrigin(bullet::convert(entity.model->getLocalTransform().position));
+
+    btDefaultMotionState* motionState = new btDefaultMotionState(transform);
+    btRigidBody::btRigidBodyConstructionInfo rbInfo(vaseMass, motionState, vaseShape, vaseLocalInertia);
+    rbInfo.m_friction = 0.9f;
+    entity.body = new btRigidBody(rbInfo);
+    dynamicsWorld->addRigidBody(entity.body);
+  }
+
+  cameraShape = new btSphereShape(btScalar(3.));
+  {
+    btTransform transform;
+    transform.setIdentity();
+    transform.setOrigin(btVector3(0.f, 10.f, 0.f));
+
+    btScalar mass(1.f);
+    btVector3 localInertia(0,0,0);
+    cameraShape->calculateLocalInertia(mass, localInertia);
+
+    btDefaultMotionState* motionState = new btDefaultMotionState(transform);
+    btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, motionState, cameraShape, localInertia);
+    cameraBody = new btRigidBody(rbInfo);
+    cameraBody->setSleepingThresholds(0., 0.);
+    dynamicsWorld->addRigidBody(cameraBody);
+  }
 
   camera = new render::Camera();
   camera->setFOV(60.f);
@@ -138,7 +241,7 @@ bool Demo::init()
   }
 
   controller.setSpeed(25.f);
-  controller.setPosition(vec3(0.f, 10.f, 0.f));
+  controller.setPosition(bullet::convert(cameraBody->getCenterOfMassPosition()));
 
   return true;
 }
@@ -155,9 +258,21 @@ void Demo::run()
     const Time deltaTime = timer.getTime() - currentTime;
     currentTime += deltaTime;
 
-    lightNode->setLocalPosition(vec3(0.f, sinf((float) currentTime) * 40.f + 45.f, 0.f));
-
+    // Calculate and send current velocity from controller to Bullet
+    vec3 p0 = controller.getTransform().position;
     controller.update(deltaTime);
+    vec3 p1 = controller.getTransform().position;
+    vec3 vel = float(1.0f / deltaTime) * (p1 - p0);
+    cameraBody->setLinearVelocity(bullet::convert(vel));
+    // Simulate
+    dynamicsWorld->stepSimulation(deltaTime);
+    // Set controller position according to simualtion results
+    controller.setPosition(bullet::convert(cameraBody->getCenterOfMassPosition()));
+
+    for (size_t i = 0; i < entities.size(); ++i)
+      entities[i]->syncModelFromBody();
+
+    lightNode->setLocalPosition(vec3(0.f, sinf((float) currentTime) * 40.f + 45.f, 0.f));
     cameraNode->setLocalTransform(controller.getTransform());
 
     graph.update();
