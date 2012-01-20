@@ -517,6 +517,9 @@ public:
   void setCurrentTexture(Texture* newTexture);
   /*! @note Unless you are Wendy, you probably don't need to call this.
    */
+  unsigned int getTextureUnitCount() const;
+  /*! @note Unless you are Wendy, you probably don't need to call this.
+   */
   unsigned int getActiveTextureUnit() const;
   /*! @note Unless you are Wendy, you probably don't need to call this.
    */
@@ -555,22 +558,23 @@ public:
    *  @return @c true if successful, or @c false otherwise.
    */
   static bool createSingleton(ResourceCache& cache,
-                              const WindowConfig& windowConfig = WindowConfig(),
-                              const ContextConfig& contextConfig = ContextConfig());
+                              const WindowConfig& wc = WindowConfig(),
+                              const ContextConfig& cc = ContextConfig());
 private:
   Context(ResourceCache& cache);
   Context(const Context& source);
   Context& operator = (const Context& source);
-  bool init(const WindowConfig& windowConfig, const ContextConfig& contextConfig);
-  static void sizeCallback(int width, int height);
-  static int closeCallback();
-  static void refreshCallback();
+  bool init(const WindowConfig& wc, const ContextConfig& cc);
+  static void sizeCallback(void* window, int width, int height);
+  static int closeCallback(void* window);
+  static void refreshCallback(void* window);
   typedef std::vector<SharedSampler> SamplerList;
   typedef std::vector<SharedUniform> UniformList;
   ResourceCache& cache;
   Signal0<void> finishSignal;
   Signal0<bool> closeRequestSignal;
   Signal2<void, unsigned int, unsigned int> resizedSignal;
+  void* window;
   String title;
   Ptr<Limits> limits;
   WindowMode windowMode;

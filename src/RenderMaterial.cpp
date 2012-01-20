@@ -69,36 +69,6 @@ const unsigned int MATERIAL_XML_VERSION = 8;
 
 ///////////////////////////////////////////////////////////////////////
 
-Pass& Technique::createPass()
-{
-  passes.push_back(Pass());
-  return passes.back();
-}
-
-void Technique::destroyPass(Pass& pass)
-{
-  for (PassList::iterator i = passes.begin();  i != passes.end();  i++)
-  {
-    if (&(*i) == &pass)
-    {
-      passes.erase(i);
-      break;
-    }
-  }
-}
-
-void Technique::destroyPasses()
-{
-  passes.clear();
-}
-
-const PassList& Technique::getPasses() const
-{
-  return passes;
-}
-
-///////////////////////////////////////////////////////////////////////
-
 Technique& Material::getTechnique(Phase phase)
 {
   return techniques[phase];
@@ -107,6 +77,19 @@ Technique& Material::getTechnique(Phase phase)
 const Technique& Material::getTechnique(Phase phase) const
 {
   return techniques[phase];
+}
+
+void Material::setSamplers(const char* name, GL::Texture* newTexture)
+{
+  for (size_t i = 0;  i < 2;  i++)
+  {
+    PassList& passes = techniques[i].passes;
+    for (PassList::iterator p = passes.begin();  p != passes.end();  p++)
+    {
+      if (p->hasSamplerState(name))
+        p->setSamplerState(name, newTexture);
+    }
+  }
 }
 
 Ref<Material> Material::create(const ResourceInfo& info, System& system)
@@ -278,7 +261,8 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
 
     for (pugi::xml_node p = t.child("pass");  p;  p = p.next_sibling("pass"))
     {
-      Pass& pass = technique.createPass();
+      technique.passes.push_back(Pass());
+      Pass& pass = technique.passes.back();
 
       if (pugi::xml_node node = p.child("blending"))
       {
@@ -467,6 +451,29 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
 
         pass.setProgram(program);
 
+        GL::ShaderDefines defines;
+
+        for (pugi::xml_node d = node.child("define");  d;  d = d.next_sibling("define"))
+        {
+          const String defineName(d.attribute("name").value());
+          if (defineName.empty())
+          {
+            logWarning("GLSL program \'%s\' in material \'%s\' lists unnamed define",
+                       program->getName().c_str(),
+                       name.c_str());
+
+            continue;
+          }
+
+          String defineValue(d.attribute("value").value());
+          if (defineValue.empty())
+            defineValue = "1";
+
+          defines.push_back(std::make_pair(defineName, defineValue));
+        }
+
+        std::sort(defines.begin(), defines.end());
+
         for (pugi::xml_node s = node.child("sampler");  s;  s = s.next_sibling("sampler"))
         {
           const String samplerName(s.attribute("name").value());
@@ -476,7 +483,6 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
                        program->getName().c_str(),
                        name.c_str());
 
-            technique = Technique();
             continue;
           }
 
@@ -488,18 +494,7 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
                        name.c_str(),
                        samplerName.c_str());
 
-            technique = Technique();
             continue;
-          }
-
-          const String imageName(s.attribute("image").value());
-          if (imageName.empty())
-          {
-            logError("No image name specified for sampler \'%s\' of GLSL program \'%s\' in material \'%s\'",
-                     samplerName.c_str(),
-                     program->getName().c_str(),
-                     name.c_str());
-            return NULL;
           }
 
           GL::TextureParams params(textureTypeMap[sampler->getType()]);
@@ -510,10 +505,24 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
           if (pugi::xml_attribute a = s.attribute("sRGB"))
             params.sRGB = a.as_bool();
 
-          Ref<GL::Texture> texture = GL::Texture::read(context, params, imageName);
+          Ref<GL::Texture> texture;
+
+          if (pugi::xml_attribute a = s.attribute("image"))
+            texture = GL::Texture::read(context, params, a.value());
+          else if (pugi::xml_attribute a = s.attribute("texture"))
+            texture = cache.find<GL::Texture>(a.value());
+          else
+          {
+            logError("No texture specified for sampler \'%s\' of GLSL program \'%s\' in material \'%s\'",
+                     samplerName.c_str(),
+                     program->getName().c_str(),
+                     name.c_str());
+            return NULL;
+          }
+
           if (!texture)
           {
-            logError("Failed to create texture for sampler \'%s\' of GLSL program \'%s\' in material \'%s\'",
+            logError("Failed to find texture for sampler \'%s\' of GLSL program \'%s\' in material \'%s\'",
                      samplerName.c_str(),
                      program->getName().c_str(),
                      name.c_str());
@@ -557,7 +566,6 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
                        program->getName().c_str(),
                        name.c_str());
 
-            technique = Technique();
             continue;
           }
 
@@ -569,7 +577,6 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
                        name.c_str(),
                        uniformName.c_str());
 
-            technique = Technique();
             continue;
           }
 

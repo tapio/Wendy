@@ -25,6 +25,10 @@
 
 #include <wendy/Config.h>
 
+#include <wendy/Core.h>
+#include <wendy/Timer.h>
+#include <wendy/Profile.h>
+
 #include <wendy/GLBuffer.h>
 #include <wendy/GLTexture.h>
 #include <wendy/GLProgram.h>
@@ -36,7 +40,7 @@
 #include <internal/GLHelper.h>
 
 #define GLFW_NO_GLU
-#include <GL/glfw.h>
+#include <GL/glfw3.h>
 
 #include <algorithm>
 
@@ -109,6 +113,11 @@ const char* getMessageSeverityName(GLenum severity)
   return "UNKNOWN";
 }
 
+void errorCallback(int error, const char* message)
+{
+  logError("GLFW reported error: %s", message);
+}
+
 void APIENTRY debugCallback(GLenum source,
                             GLenum type,
                             GLuint id,
@@ -135,20 +144,6 @@ void APIENTRY debugCallback(GLenum source,
                id,
                message);
   }
-}
-
-GLint getIntegerParameter(GLenum parameter)
-{
-  GLint value;
-  glGetIntegerv(parameter, &value);
-  return value;
-}
-
-GLfloat getFloatParameter(GLenum parameter)
-{
-  GLfloat value;
-  glGetFloatv(parameter, &value);
-  return value;
 }
 
 const char* getFramebufferStatusMessage(GLenum status)
@@ -340,29 +335,29 @@ ContextConfig::ContextConfig(unsigned int initColorBits,
 
 Limits::Limits(Context& context)
 {
-  maxColorAttachments = getIntegerParameter(GL_MAX_COLOR_ATTACHMENTS_EXT);
-  maxDrawBuffers = getIntegerParameter(GL_MAX_DRAW_BUFFERS);
-  maxVertexTextureImageUnits = getIntegerParameter(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS);
-  maxFragmentTextureImageUnits = getIntegerParameter(GL_MAX_TEXTURE_IMAGE_UNITS);
-  maxCombinedTextureImageUnits = getIntegerParameter(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS);
-  maxTextureSize = getIntegerParameter(GL_MAX_TEXTURE_SIZE);
-  maxTexture3DSize = getIntegerParameter(GL_MAX_3D_TEXTURE_SIZE);
-  maxTextureCubeSize = getIntegerParameter(GL_MAX_CUBE_MAP_TEXTURE_SIZE);
-  maxTextureRectangleSize = getIntegerParameter(GL_MAX_RECTANGLE_TEXTURE_SIZE_ARB);
-  maxTextureCoords = getIntegerParameter(GL_MAX_TEXTURE_COORDS);
-  maxVertexAttributes = getIntegerParameter(GL_MAX_VERTEX_ATTRIBS);
+  maxColorAttachments = getInteger(GL_MAX_COLOR_ATTACHMENTS_EXT);
+  maxDrawBuffers = getInteger(GL_MAX_DRAW_BUFFERS);
+  maxVertexTextureImageUnits = getInteger(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS);
+  maxFragmentTextureImageUnits = getInteger(GL_MAX_TEXTURE_IMAGE_UNITS);
+  maxCombinedTextureImageUnits = getInteger(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS);
+  maxTextureSize = getInteger(GL_MAX_TEXTURE_SIZE);
+  maxTexture3DSize = getInteger(GL_MAX_3D_TEXTURE_SIZE);
+  maxTextureCubeSize = getInteger(GL_MAX_CUBE_MAP_TEXTURE_SIZE);
+  maxTextureRectangleSize = getInteger(GL_MAX_RECTANGLE_TEXTURE_SIZE_ARB);
+  maxTextureCoords = getInteger(GL_MAX_TEXTURE_COORDS);
+  maxVertexAttributes = getInteger(GL_MAX_VERTEX_ATTRIBS);
 
   Version version = context.getVersion();
 
   if (GLEW_EXT_texture_filter_anisotropic)
-    maxTextureAnisotropy = getFloatParameter(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+    maxTextureAnisotropy = getFloat(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT);
   else
     maxTextureAnisotropy = 1.f;
 
   if (GLEW_ARB_geometry_shader4 || version > Version(3,1))
   {
-    maxGeometryOutputVertices = getIntegerParameter(GL_MAX_GEOMETRY_OUTPUT_VERTICES);
-    maxGeometryTextureImageUnits = getIntegerParameter(GL_MAX_GEOMETRY_TEXTURE_IMAGE_UNITS);
+    maxGeometryOutputVertices = getInteger(GL_MAX_GEOMETRY_OUTPUT_VERTICES);
+    maxGeometryTextureImageUnits = getInteger(GL_MAX_GEOMETRY_TEXTURE_IMAGE_UNITS);
   }
   else
   {
@@ -372,8 +367,8 @@ Limits::Limits(Context& context)
 
   if (GLEW_ARB_tessellation_shader || version > Version(3,3))
   {
-    maxTessControlTextureImageUnits = getIntegerParameter(GL_MAX_TESS_CONTROL_TEXTURE_IMAGE_UNITS);
-    maxTessEvaluationTextureImageUnits = getIntegerParameter(GL_MAX_TESS_EVALUATION_TEXTURE_IMAGE_UNITS);
+    maxTessControlTextureImageUnits = getInteger(GL_MAX_TESS_CONTROL_TEXTURE_IMAGE_UNITS);
+    maxTessEvaluationTextureImageUnits = getInteger(GL_MAX_TESS_EVALUATION_TEXTURE_IMAGE_UNITS);
   }
   else
   {
@@ -632,7 +627,8 @@ Context::~Context()
     setCurrentTexture(NULL);
   }
 
-  glfwCloseWindow();
+  if (window && glfwIsWindow(window))
+    glfwCloseWindow(window);
 
   instance = NULL;
 }
@@ -714,6 +710,8 @@ void Context::render(const PrimitiveRange& range)
 
 void Context::render(PrimitiveType type, unsigned int start, unsigned int count)
 {
+  ProfileNodeCall call("GL::Context::render");
+
   if (!currentProgram)
   {
     logError("Cannot render without a current shader program");
@@ -818,6 +816,8 @@ void Context::refresh()
 
 bool Context::update()
 {
+  ProfileNodeCall call("GL::Context::update");
+
   glfwSwapBuffers();
   finishSignal();
   needsRefresh = false;
@@ -842,7 +842,7 @@ bool Context::update()
 
 void Context::requestClose()
 {
-  closeCallback();
+  closeCallback(window);
 }
 
 void Context::createSharedSampler(const char* name, SamplerType type, int ID)
@@ -1127,6 +1127,11 @@ void Context::setCurrentTexture(Texture* newTexture)
   }
 }
 
+unsigned int Context::getTextureUnitCount() const
+{
+  return (unsigned int) textureUnits.size();
+}
+
 unsigned int Context::getActiveTextureUnit() const
 {
   return activeTextureUnit;
@@ -1163,7 +1168,7 @@ const String& Context::getTitle() const
 
 void Context::setTitle(const char* newTitle)
 {
-  glfwSetWindowTitle(newTitle);
+  glfwSetWindowTitle(window, newTitle);
   title = newTitle;
 }
 
@@ -1198,11 +1203,11 @@ SignalProxy2<void, unsigned int, unsigned int> Context::getResizedSignal()
 }
 
 bool Context::createSingleton(ResourceCache& cache,
-                              const WindowConfig& windowConfig,
-                              const ContextConfig& contextConfig)
+                              const WindowConfig& wc,
+                              const ContextConfig& cc)
 {
   Ptr<Context> context(new Context(cache));
-  if (!context->init(windowConfig, contextConfig))
+  if (!context->init(wc, cc))
     return false;
 
   set(context.detachObject());
@@ -1211,6 +1216,7 @@ bool Context::createSingleton(ResourceCache& cache,
 
 Context::Context(ResourceCache& initCache):
   cache(initCache),
+  window(NULL),
   refreshMode(AUTOMATIC_REFRESH),
   needsRefresh(false),
   needsClosing(false),
@@ -1237,39 +1243,39 @@ Context& Context::operator = (const Context& source)
   panic("OpenGL contexts may not be assigned");
 }
 
-bool Context::init(const WindowConfig& windowConfig,
-                   const ContextConfig& contextConfig)
+bool Context::init(const WindowConfig& wc, const ContextConfig& cc)
 {
+  glfwSetErrorCallback(errorCallback);
+
   if (!glfwInit())
   {
     logError("Failed to initialize GLFW");
     return false;
   }
 
+  log("GLFW version %s initialized", glfwGetVersionString());
+
   // Create context and window
   {
-    unsigned int colorBits = contextConfig.colorBits;
+    unsigned int colorBits = cc.colorBits;
     if (colorBits > 24)
       colorBits = 24;
 
-    unsigned int mode;
+    glfwOpenWindowHint(GLFW_RED_BITS, colorBits / 3);
+    glfwOpenWindowHint(GLFW_GREEN_BITS, colorBits / 3);
+    glfwOpenWindowHint(GLFW_BLUE_BITS, colorBits / 3);
+    glfwOpenWindowHint(GLFW_DEPTH_BITS, cc.depthBits);
+    glfwOpenWindowHint(GLFW_STENCIL_BITS, cc.stencilBits);
+    glfwOpenWindowHint(GLFW_FSAA_SAMPLES, cc.samples);
 
-    if (windowConfig.mode == WINDOWED)
-      mode = GLFW_WINDOW;
-    else
-      mode = GLFW_FULLSCREEN;
-
-    if (contextConfig.samples)
-      glfwOpenWindowHint(GLFW_FSAA_SAMPLES, contextConfig.samples);
-
-    version = contextConfig.version;
+    version = cc.version;
     if (version < Version(2,1))
       version = Version(2,1);
 
     glfwOpenWindowHint(GLFW_OPENGL_VERSION_MAJOR, version.m);
     glfwOpenWindowHint(GLFW_OPENGL_VERSION_MINOR, version.n);
 
-    glfwOpenWindowHint(GLFW_WINDOW_NO_RESIZE, !windowConfig.resizable);
+    glfwOpenWindowHint(GLFW_WINDOW_RESIZABLE, wc.resizable);
 
     if (version > Version(3,1))
     {
@@ -1281,16 +1287,22 @@ bool Context::init(const WindowConfig& windowConfig,
     glfwOpenWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
 #endif
 
-    if (!glfwOpenWindow(windowConfig.width, windowConfig.height,
-                        colorBits / 3, colorBits / 3, colorBits / 3, 0,
-                        contextConfig.depthBits, contextConfig.stencilBits, mode))
+    unsigned int mode;
+
+    if (wc.mode == WINDOWED)
+      mode = GLFW_WINDOWED;
+    else
+      mode = GLFW_FULLSCREEN;
+
+    window = glfwOpenWindow(wc.width, wc.height, mode, wc.title.c_str(), NULL);
+    if (!window)
     {
       logError("Failed to create GLFW window");
       return false;
     }
 
-    version = Version(glfwGetWindowParam(GLFW_OPENGL_VERSION_MAJOR),
-                      glfwGetWindowParam(GLFW_OPENGL_VERSION_MINOR));
+    version = Version(glfwGetWindowParam(window, GLFW_OPENGL_VERSION_MAJOR),
+                      glfwGetWindowParam(window, GLFW_OPENGL_VERSION_MINOR));
 
     log("OpenGL context version %i.%i created", version.m, version.n);
 
@@ -1301,7 +1313,8 @@ bool Context::init(const WindowConfig& windowConfig,
         (const char*) glGetString(GL_RENDERER),
         (const char*) glGetString(GL_VENDOR));
 
-    windowMode = windowConfig.mode;
+    windowMode = wc.mode;
+    title = wc.title;
   }
 
   // Initialize GLEW and check extensions
@@ -1354,16 +1367,16 @@ bool Context::init(const WindowConfig& windowConfig,
     // Read back actual (as opposed to desired) properties
 
     int width, height;
-    glfwGetWindowSize(&width, &height);
+    glfwGetWindowSize(window, &width, &height);
     defaultFramebuffer->width = width;
     defaultFramebuffer->height = height;
 
-    defaultFramebuffer->colorBits = glfwGetWindowParam(GLFW_RED_BITS) +
-                                    glfwGetWindowParam(GLFW_GREEN_BITS) +
-                                    glfwGetWindowParam(GLFW_BLUE_BITS);
-    defaultFramebuffer->depthBits = glfwGetWindowParam(GLFW_DEPTH_BITS);
-    defaultFramebuffer->stencilBits = glfwGetWindowParam(GLFW_STENCIL_BITS);
-    defaultFramebuffer->samples = glfwGetWindowParam(GLFW_FSAA_SAMPLES);
+    defaultFramebuffer->colorBits = glfwGetWindowParam(window, GLFW_RED_BITS) +
+                                    glfwGetWindowParam(window, GLFW_GREEN_BITS) +
+                                    glfwGetWindowParam(window, GLFW_BLUE_BITS);
+    defaultFramebuffer->depthBits = glfwGetWindowParam(window, GLFW_DEPTH_BITS);
+    defaultFramebuffer->stencilBits = glfwGetWindowParam(window, GLFW_STENCIL_BITS);
+    defaultFramebuffer->samples = glfwGetWindowParam(window, GLFW_FSAA_SAMPLES);
 
     setDefaultFramebufferCurrent();
 
@@ -1373,27 +1386,25 @@ bool Context::init(const WindowConfig& windowConfig,
 
   // Finish GLFW init
   {
-    setTitle(windowConfig.title.c_str());
     setSwapInterval(1);
 
     glfwSetWindowSizeCallback(sizeCallback);
     glfwSetWindowCloseCallback(closeCallback);
     glfwSetWindowRefreshCallback(refreshCallback);
-    glfwDisable(GLFW_AUTO_POLL_EVENTS);
     glfwPollEvents();
   }
 
   return true;
 }
 
-void Context::sizeCallback(int width, int height)
+void Context::sizeCallback(void* window, int width, int height)
 {
   instance->defaultFramebuffer->width = width;
   instance->defaultFramebuffer->height = height;
   instance->resizedSignal(width, height);
 }
 
-int Context::closeCallback()
+int Context::closeCallback(void* window)
 {
   std::vector<bool> results;
 
@@ -1405,7 +1416,7 @@ int Context::closeCallback()
   return GL_TRUE;
 }
 
-void Context::refreshCallback()
+void Context::refreshCallback(void* window)
 {
   instance->needsRefresh = true;
 }

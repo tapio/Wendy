@@ -59,6 +59,13 @@ enum ShaderType
 
 ///////////////////////////////////////////////////////////////////////
 
+/*! @brief GLSL define key/value pair set.
+ *  @ingroup opengl
+ */
+typedef std::vector<std::pair<String, String> > ShaderDefines;
+
+///////////////////////////////////////////////////////////////////////
+
 /*! @brief GLSL shader.
  *  @ingroup opengl
  */
@@ -77,13 +84,15 @@ public:
   static Ref<Shader> create(const ResourceInfo& info,
                             Context& context,
                             ShaderType type,
-                            const String& text);
+                            const String& text,
+                            const ShaderDefines& defines = ShaderDefines());
   static Ref<Shader> read(Context& context,
                           ShaderType type,
-                          const String& name);
+                          const String& textName,
+                          const ShaderDefines& defines = ShaderDefines());
 private:
   Shader(const ResourceInfo& info, Context& context, ShaderType type);
-  bool init(const String& text);
+  bool init(const String& text, const ShaderDefines& defines);
   Context& context;
   ShaderType type;
   unsigned int shaderID;
