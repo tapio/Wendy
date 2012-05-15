@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<material version="8">
+  <technique type="deferred">
+    <pass>
+      <program vs="wendy/DeferredNormalMapped.vs" fs="wendy/DeferredNormalMapped.fs">
+        <sampler name="colormap" image="barrel_diff.png" filter="trilinear" address="wrap" />
+        <sampler name="normalmap" image="barrel_ns.png" filter="trilinear" address="wrap" />
+      </program>
+    </pass>
+  </technique>
+</material>

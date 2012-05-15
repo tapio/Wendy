@@ -29,8 +29,10 @@
 #include <wendy/GLTexture.h>
 #include <wendy/GLProgram.h>
 #include <wendy/GLContext.h>
-#include <wendy/GLState.h>
 
+#include <wendy/RenderPool.h>
+#include <wendy/RenderState.h>
+#include <wendy/RenderSystem.h>
 #include <wendy/RenderCamera.h>
 #include <wendy/RenderMaterial.h>
 #include <wendy/RenderLight.h>
@@ -51,21 +53,49 @@ namespace wendy
 namespace
 {
 
-const unsigned int MODEL_XML_VERSION = 2;
+const unsigned int MODEL_XML_VERSION = 3;
 
 } /*namespace*/
 
 ///////////////////////////////////////////////////////////////////////
 
+ModelSection::ModelSection(const GL::IndexRange& initRange,
+                           Material* initMaterial):
+  range(initRange),
+  material(initMaterial)
+{
+}
+
+const GL::IndexRange& ModelSection::getIndexRange() const
+{
+  return range;
+}
+
+Material* ModelSection::getMaterial() const
+{
+  return material;
+}
+
+void ModelSection::setMaterial(Material* newMaterial)
+{
+  material = newMaterial;
+}
+
+///////////////////////////////////////////////////////////////////////
+
 void Model::enqueue(Scene& scene, const Camera& camera, const Transform3& transform) const
 {
-  for (GeometryList::const_iterator g = geometries.begin();  g != geometries.end();  g++)
+  for (auto s = sections.begin();  s != sections.end();  s++)
   {
-    GL::PrimitiveRange range(GL::TRIANGLE_LIST, *vertexBuffer, g->getIndexRange());
+    Material* material = s->getMaterial();
+    if (!material)
+      continue;
+
+    GL::PrimitiveRange range(GL::TRIANGLE_LIST, *vertexBuffer, s->getIndexRange());
 
     float depth = camera.getNormalizedDepth(transform.position + boundingSphere.center);
 
-    scene.createOperations(transform, range, *g->getMaterial(), depth);
+    scene.createOperations(transform, range, *material, depth);
   }
 }
 
@@ -79,9 +109,9 @@ const Sphere& Model::getBoundingSphere() const
   return boundingSphere;
 }
 
-const Model::GeometryList& Model::getGeometries()
+const ModelSectionList& Model::getSections()
 {
-  return geometries;
+  return sections;
 }
 
 GL::VertexBuffer& Model::getVertexBuffer()
@@ -105,26 +135,24 @@ const GL::IndexBuffer& Model::getIndexBuffer() const
 }
 
 Ref<Model> Model::create(const ResourceInfo& info,
-                         GL::Context& context,
+                         System& system,
                          const Mesh& data,
                          const MaterialMap& materials)
 {
-  Ref<Model> model(new Model(info, context));
-  if (!model->init(data, materials))
+  Ref<Model> model(new Model(info));
+  if (!model->init(system, data, materials))
     return NULL;
 
   return model;
 }
 
-Model::Model(const ResourceInfo& info, GL::Context& initContext):
-  Resource(info),
-  context(initContext)
+Model::Model(const ResourceInfo& info):
+  Resource(info)
 {
 }
 
 Model::Model(const Model& source):
-  Resource(source),
-  context(source.context)
+  Resource(source)
 {
   panic("Models may not be copied");
 }
@@ -134,9 +162,8 @@ Model& Model::operator = (const Model& source)
   panic("Models may not be assigned");
 }
 
-bool Model::init(const Mesh& data, const MaterialMap& materials)
+bool Model::init(System& system, const Mesh& data, const MaterialMap& materials)
 {
-  /*
   if (!data.isValid())
   {
     logError("Mesh \'%s\' for model \'%s\' is not valid",
@@ -144,31 +171,26 @@ bool Model::init(const Mesh& data, const MaterialMap& materials)
              getName().c_str());
     return false;
   }
-  */
 
-  int indexCount = 0;
-
-  for (Mesh::GeometryList::const_iterator g = data.geometries.begin();
-       g != data.geometries.end();
-       g++)
+  for (auto s = data.sections.begin();  s != data.sections.end();  s++)
   {
-    if (materials.find(g->shaderName) == materials.end())
+    if (materials.find(s->materialName) == materials.end())
     {
       logError("Missing material \'%s\' for model \'%s\'",
-               g->shaderName.c_str(),
+               s->materialName.c_str(),
                getName().c_str());
       return false;
     }
-
-    indexCount += g->triangles.size() * 3;
   }
 
+  GL::Context& context = system.getContext();
+
   VertexFormat format;
-  if (!format.createComponents("3f:wyPosition 3f:wyNormal 2f:wyTexCoord"))
+  if (!format.createComponents("3f:wyPosition 3f:wyNormal 2f:wyTexCoord 3f:wyTangent 3f:wyBitangent"))
     return false;
 
   vertexBuffer = GL::VertexBuffer::create(context,
-                                          (unsigned int) data.vertices.size(),
+                                          data.vertices.size(),
                                           format,
                                           GL::VertexBuffer::STATIC);
   if (!vertexBuffer)
@@ -176,8 +198,9 @@ bool Model::init(const Mesh& data, const MaterialMap& materials)
 
   vertexBuffer->copyFrom(&data.vertices[0], data.vertices.size());
 
-  GL::IndexBuffer::Type indexType;
+  const size_t indexCount = data.getTriangleCount() * 3;
 
+  GL::IndexBuffer::Type indexType;
   if (indexCount <= (1 << 8))
     indexType = GL::IndexBuffer::UINT8;
   else if (indexCount <= (1 << 16))
@@ -192,28 +215,14 @@ bool Model::init(const Mesh& data, const MaterialMap& materials)
   if (!indexBuffer)
     return false;
 
-  int indexBase = 0;
+  size_t start = 0;
 
-  for (Mesh::GeometryList::const_iterator g = data.geometries.begin();
-       g != data.geometries.end();
-       g++)
+  for (auto s = data.sections.begin();  s != data.sections.end();  s++)
   {
-    indexCount = g->triangles.size() * 3;
+    const size_t count = s->triangles.size() * 3;
+    GL::IndexRange range(*indexBuffer, start, count);
 
-    const String& materialName(materials.find(g->shaderName)->second);
-
-    Ref<Material> material = Material::read(context, materialName);
-    if (!material)
-    {
-      logError("Failed to load material for model \'%s\'", getName().c_str());
-      return false;
-    }
-
-    GL::IndexRange range(*indexBuffer, indexBase, indexCount);
-
-    geometries.push_back(Geometry(range, material));
-
-    int index = 0;
+    sections.push_back(ModelSection(range, materials.find(s->materialName)->second));
 
     if (indexType == GL::IndexBuffer::UINT8)
     {
@@ -221,13 +230,13 @@ bool Model::init(const Mesh& data, const MaterialMap& materials)
       if (!indices)
         return false;
 
-      for (MeshGeometry::TriangleList::const_iterator j = g->triangles.begin();
-           j != g->triangles.end();
-           j++)
+      size_t index = 0;
+
+      for (auto t = s->triangles.begin();  t != s->triangles.end();  t++)
       {
-        indices[index++] = j->indices[0];
-        indices[index++] = j->indices[1];
-        indices[index++] = j->indices[2];
+        indices[index++] = t->indices[0];
+        indices[index++] = t->indices[1];
+        indices[index++] = t->indices[2];
       }
     }
     else if (indexType == GL::IndexBuffer::UINT16)
@@ -236,13 +245,13 @@ bool Model::init(const Mesh& data, const MaterialMap& materials)
       if (!indices)
         return false;
 
-      for (MeshGeometry::TriangleList::const_iterator j = g->triangles.begin();
-           j != g->triangles.end();
-           j++)
+      size_t index = 0;
+
+      for (auto t = s->triangles.begin();  t != s->triangles.end();  t++)
       {
-        indices[index++] = j->indices[0];
-        indices[index++] = j->indices[1];
-        indices[index++] = j->indices[2];
+        indices[index++] = t->indices[0];
+        indices[index++] = t->indices[1];
+        indices[index++] = t->indices[2];
       }
     }
     else
@@ -251,17 +260,17 @@ bool Model::init(const Mesh& data, const MaterialMap& materials)
       if (!indices)
         return false;
 
-      for (MeshGeometry::TriangleList::const_iterator j = g->triangles.begin();
-           j != g->triangles.end();
-           j++)
+      size_t index = 0;
+
+      for (auto t = s->triangles.begin();  t != s->triangles.end();  t++)
       {
-        indices[index++] = j->indices[0];
-        indices[index++] = j->indices[1];
-        indices[index++] = j->indices[2];
+        indices[index++] = t->indices[0];
+        indices[index++] = t->indices[1];
+        indices[index++] = t->indices[2];
       }
     }
 
-    indexBase += indexCount;
+    start += count;
   }
 
   boundingAABB = data.generateBoundingAABB();
@@ -269,41 +278,17 @@ bool Model::init(const Mesh& data, const MaterialMap& materials)
   return true;
 }
 
-Ref<Model> Model::read(GL::Context& context, const String& name)
+Ref<Model> Model::read(System& system, const String& name)
 {
-  ModelReader reader(context);
+  ModelReader reader(system);
   return reader.read(name);
 }
 
 ///////////////////////////////////////////////////////////////////////
 
-Model::Geometry::Geometry(const GL::IndexRange& initRange,
-                          Material* initMaterial):
-  range(initRange),
-  material(initMaterial)
-{
-}
-
-const GL::IndexRange& Model::Geometry::getIndexRange() const
-{
-  return range;
-}
-
-Material* Model::Geometry::getMaterial() const
-{
-  return material;
-}
-
-void Model::Geometry::setMaterial(Material* newMaterial)
-{
-  material = newMaterial;
-}
-
-///////////////////////////////////////////////////////////////////////
-
-ModelReader::ModelReader(GL::Context& initContext):
-  ResourceReader(initContext.getCache()),
-  context(initContext)
+ModelReader::ModelReader(System& initSystem):
+  ResourceReader<Model>(initSystem.getCache()),
+  system(initSystem)
 {
 }
 
@@ -352,17 +337,34 @@ Ref<Model> ModelReader::read(const String& name, const Path& path)
 
   for (pugi::xml_node m = root.child("material");  m;  m = m.next_sibling("material"))
   {
-    const String materialName(m.attribute("name").value());
-    if (materialName.empty())
+    const String materialAlias(m.attribute("alias").value());
+    if (materialAlias.empty())
     {
-      logError("Empty material name found in model \'%s\'", name.c_str());
+      logError("Empty material alias found in model \'%s\'", name.c_str());
       return NULL;
     }
 
-    materials[materialName] = m.attribute("path").value();
+    const String materialName(m.attribute("name").value());
+    if (materialName.empty())
+    {
+      logError("Empty material name for alias \'%s\' in model \'%s\'",
+               materialAlias.c_str(),
+               name.c_str());
+      return NULL;
+    }
+
+    Ref<Material> material = Material::read(system, materialName);
+    if (!material)
+    {
+      logError("Failed to load material for alias \'%s\' of model \'%s\'",
+               materialAlias.c_str(),
+               materialName.c_str());
+    }
+
+    materials[materialAlias] = material;
   }
 
-  return Model::create(ResourceInfo(cache, name, path), context, *mesh, materials);
+  return Model::create(ResourceInfo(cache, name, path), system, *mesh, materials);
 }
 
 ///////////////////////////////////////////////////////////////////////

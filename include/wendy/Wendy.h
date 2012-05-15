@@ -61,26 +61,32 @@
 
 #include <wendy/Input.h>
 
+#if WENDY_INCLUDE_OPENAL
 #include <wendy/WendyAL.h>
+#endif
 
+#if WENDY_INCLUDE_RENDERER
 #include <wendy/WendyRender.h>
+#endif
 
 #if WENDY_INCLUDE_SCENE_GRAPH
 #include <wendy/SceneGraph.h>
 #endif
 
+#if WENDY_INCLUDE_UI_SYSTEM
 #include <wendy/WendyUI.h>
+#endif
 
 #if WENDY_INCLUDE_DEBUG_UI
 #include <wendy/DebugUI.h>
 #endif
 
 #if WENDY_INCLUDE_SQUIRREL
-#include <wendy/Squirrel.h>
+#include <wendy/WendySquirrel.h>
 #endif
 
 #if WENDY_INCLUDE_BULLET
-#include <wendy/Bullet.h>
+#include <wendy/WendyBullet.h>
 #endif
 
 ///////////////////////////////////////////////////////////////////////

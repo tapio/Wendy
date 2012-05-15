@@ -29,7 +29,7 @@
 #include <wendy/GLBuffer.h>
 #include <wendy/GLTexture.h>
 #include <wendy/GLProgram.h>
-#include <wendy/GLState.h>
+#include <wendy/RenderState.h>
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -40,11 +40,21 @@ namespace wendy
 
 ///////////////////////////////////////////////////////////////////////
 
-/*! @brief Render pass state object.
+class System;
+
+///////////////////////////////////////////////////////////////////////
+
+/*! @brief Render phase enumeration.
  *  @ingroup renderer
  */
-class Pass : public GL::RenderState
+enum Phase
 {
+  /*! Normal forward rendering or G-buffer filling.
+   */
+  PHASE_DEFAULT,
+  /*! Shadow map rendering.
+   */
+  PHASE_SHADOWMAP
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -61,60 +71,10 @@ typedef std::vector<Pass> PassList;
 class Technique
 {
 public:
-  /*! Technique type enumeration.
+  /*! The %render passes in this technique.
    */
-  enum Type
-  {
-    /*! This technique is intended for the forward renderer.
-     */
-    FORWARD,
-    /*! This technique is intended for the deferred renderer.
-     */
-    DEFERRED,
-    /*! This technique is intended for rendering shadow maps.
-     */
-    SHADOWMAP
-  };
-  /*! Constructor.
-   *  @param[in] type The render type of the created technique.
-   */
-  Technique(Type type);
-  /*! Creates a new %render pass in this technique.
-   *  @return The newly created %render pass.
-   *
-   *  @remarks The passes are rendered in creation order.
-   */
-  Pass& createPass();
-  /*! Removes the specified %render pass from this technique.
-   */
-  void destroyPass(Pass& pass);
-  /*! Destroys all %render passes in this technique.
-   */
-  void destroyPasses();
-  /*! @return The %render passes in this technique.
-   */
-  const PassList& getPasses() const;
-  /*! @return The type of this technique.
-   */
-  Type getType() const;
-  /*! @return The quality of this technique.
-   */
-  float getQuality() const;
-  /*! Sets the quality of this technique.
-   *  @param[in] newQuality The quality to set.
-   */
-  void setQuality(float newQuality);
-private:
-  Type type;
-  float quality;
   PassList passes;
 };
-
-///////////////////////////////////////////////////////////////////////
-
-/*! @ingroup renderer
- */
-typedef std::vector<Technique> TechniqueList;
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -124,46 +84,34 @@ typedef std::vector<Technique> TechniqueList;
 class Material : public Resource
 {
 public:
-  /*! Constructor.
+  /*! @return The technique for the specified phase.
    */
-  Material(const ResourceInfo& info);
-  /*! Creates a technique of the specified type in this %render material.
+  Technique& getTechnique(Phase phase);
+  /*! @return The technique for the specified phase.
    */
-  Technique& createTechnique(Technique::Type type);
-  /*! Destroys the specified technique.
+  const Technique& getTechnique(Phase phase) const;
+  /*! Sets all samplers in all passes in all techniques in this material
+   *  matching the specified name to the specified texture.
    */
-  void destroyTechnique(Technique& technique);
-  /*! Destroys all techniques in this %render material.
+  void setSamplers(const char* name, GL::Texture* newTexture);
+  /*! Creates a material.
+   *  @param[in] info The resource info for the texture.
+   *  @param[in] system The OpenGL context within which to create the texture.
+   *  @return The newly created material, or @c NULL if an error
+   *  occurred.
    */
-  void destroyTechniques();
-  /*! Searches for the highest quality technique of the specified type.
-   *  @param[in] type The desired technique type.
-   *  @return The desired technique, or @c NULL if no technique exists of the
-   *  specified type.
-   */
-  Technique* findBestTechnique(Technique::Type type);
-  /*! Searches for the highest quality technique of the specified type.
-   *  @param[in] type The desired technique type.
-   *  @return The desired technique, or @c NULL if no technique exists of the
-   *  specified type.
-   */
-  const Technique* findBestTechnique(Technique::Type type) const;
-  /*! @return The techniques in this material.
-   */
-  TechniqueList& getTechniques();
-  /*! @return The techniques in this material.
-   */
-  const TechniqueList& getTechniques() const;
-  /*! Loads a material from the specified path using the specified context, or
+  static Ref<Material> create(const ResourceInfo& info, System& system);
+  /*! Loads a material from the specified path using the specified system, or
    *  returns the already loaded material if it's already present in the
-   *  resource cache of the context.
-   *  @param[in] context The context to use.
+   *  resource cache of the system.
+   *  @param[in] system The system to use.
    *  @param[in] path The path of the material.
    *  @return The loaded material, or @c NULL if an error occurred.
    */
-  static Ref<Material> read(GL::Context& context, const String& name);
+  static Ref<Material> read(System& system, const String& name);
 private:
-  TechniqueList techniques;
+  Material(const ResourceInfo& info);
+  Technique techniques[2];
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -174,22 +122,11 @@ private:
 class MaterialReader : public ResourceReader<Material>
 {
 public:
-  MaterialReader(GL::Context& context);
-  using ResourceReader::read;
+  MaterialReader(System& system);
+  using ResourceReader<Material>::read;
   Ref<Material> read(const String& name, const Path& path);
 private:
-  GL::Context& context;
-};
-
-///////////////////////////////////////////////////////////////////////
-
-/*! @brief Codec for XML format render materials.
- *  @ingroup renderer
- */
-class MaterialWriter
-{
-public:
-  bool write(const Path& path, const Material& material);
+  System& system;
 };
 
 ///////////////////////////////////////////////////////////////////////

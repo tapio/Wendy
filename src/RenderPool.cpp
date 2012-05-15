@@ -41,13 +41,6 @@ namespace wendy
 
 ///////////////////////////////////////////////////////////////////////
 
-GeometryPool::GeometryPool(GL::Context& initContext, size_t initGranularity):
-  context(initContext),
-  granularity(initGranularity)
-{
-  context.getFinishSignal().connect(*this, &GeometryPool::onContextFinish);
-}
-
 bool GeometryPool::allocateIndices(GL::IndexRange& range,
                                    unsigned int count,
                                    GL::IndexBuffer::Type type)
@@ -60,7 +53,7 @@ bool GeometryPool::allocateIndices(GL::IndexRange& range,
 
   IndexBufferSlot* slot = NULL;
 
-  for (IndexBufferList::iterator i = indexBufferPool.begin();  i != indexBufferPool.end();  i++)
+  for (auto i = indexBufferPool.begin();  i != indexBufferPool.end();  i++)
   {
     if (i->indexBuffer->getType() == type && i->available >= count)
     {
@@ -111,7 +104,7 @@ bool GeometryPool::allocateVertices(GL::VertexRange& range,
 
   VertexBufferSlot* slot = NULL;
 
-  for (VertexBufferList::iterator i = vertexBufferPool.begin();  i != vertexBufferPool.end();  i++)
+  for (auto i = vertexBufferPool.begin();  i != vertexBufferPool.end();  i++)
   {
     if (i->vertexBuffer->getFormat() == format && i->available >= count)
     {
@@ -157,12 +150,34 @@ GL::Context& GeometryPool::getContext() const
   return context;
 }
 
+Ref<GeometryPool> GeometryPool::create(GL::Context& context, size_t granularity)
+{
+  Ref<GeometryPool> pool(new GeometryPool(context));
+  if (!pool->init(granularity))
+    return NULL;
+
+  return pool;
+}
+
+GeometryPool::GeometryPool(GL::Context& initContext):
+  context(initContext),
+  granularity(0)
+{
+  context.getFinishSignal().connect(*this, &GeometryPool::onContextFinish);
+}
+
+bool GeometryPool::init(size_t initGranularity)
+{
+  granularity = initGranularity;
+  return true;
+}
+
 void GeometryPool::onContextFinish()
 {
-  for (IndexBufferList::iterator i = indexBufferPool.begin();  i != indexBufferPool.end();  i++)
+  for (auto i = indexBufferPool.begin();  i != indexBufferPool.end();  i++)
     i->available = i->indexBuffer->getCount();
 
-  for (VertexBufferList::iterator i = vertexBufferPool.begin();  i != vertexBufferPool.end();  i++)
+  for (auto i = vertexBufferPool.begin();  i != vertexBufferPool.end();  i++)
     i->available = i->vertexBuffer->getCount();
 }
 

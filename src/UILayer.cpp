@@ -25,6 +25,10 @@
 
 #include <wendy/Config.h>
 
+#include <wendy/Core.h>
+#include <wendy/Timer.h>
+#include <wendy/Profile.h>
+
 #include <wendy/UIDrawer.h>
 #include <wendy/UILayer.h>
 #include <wendy/UIWidget.h>
@@ -40,8 +44,8 @@ namespace wendy
 
 ///////////////////////////////////////////////////////////////////////
 
-Layer::Layer(input::Context& initContext, UI::Drawer& initDrawer):
-  context(initContext),
+Layer::Layer(input::Window& initWindow, UI::Drawer& initDrawer):
+  window(initWindow),
   drawer(initDrawer),
   width(0),
   height(0),
@@ -52,7 +56,7 @@ Layer::Layer(input::Context& initContext, UI::Drawer& initDrawer):
   captureWidget(NULL),
   stack(NULL)
 {
-  assert(&context);
+  assert(&window);
   assert(&drawer);
 }
 
@@ -67,12 +71,14 @@ void Layer::update()
 
 void Layer::draw()
 {
+  ProfileNodeCall call("UI::Layer::draw");
+
   drawer.begin();
 
-  for (WidgetList::const_iterator i = roots.begin();  i != roots.end();  i++)
+  for (auto r = roots.begin();  r != roots.end();  r++)
   {
-    if ((*i)->isVisible())
-      (*i)->draw();
+    if ((*r)->isVisible())
+      (*r)->draw();
   }
 
   drawer.end();
@@ -94,7 +100,7 @@ void Layer::destroyRootWidgets()
 
 Widget* Layer::findWidgetByPoint(const vec2& point)
 {
-  for (WidgetList::reverse_iterator r = roots.rbegin();  r != roots.rend();  r++)
+  for (auto r = roots.rbegin();  r != roots.rend();  r++)
   {
     if ((*r)->isVisible())
     {
@@ -117,7 +123,7 @@ void Layer::captureCursor()
 
   captureWidget = activeWidget;
   hoveredWidget = activeWidget;
-  context.captureCursor();
+  window.captureCursor();
 }
 
 void Layer::releaseCursor()
@@ -125,7 +131,7 @@ void Layer::releaseCursor()
   if (captureWidget)
   {
     captureWidget = NULL;
-    context.releaseCursor();
+    window.releaseCursor();
     updateHoveredWidget();
   }
 }
@@ -134,8 +140,8 @@ void Layer::cancelDragging()
 {
   if (dragging && draggedWidget)
   {
-    vec2 cursorPosition = vec2(context.getCursorPosition());
-    cursorPosition.y = context.getHeight() - cursorPosition.y;
+    vec2 cursorPosition = vec2(window.getCursorPosition());
+    cursorPosition.y = window.getHeight() - cursorPosition.y;
 
     draggedWidget->dragEndedSignal(*draggedWidget, cursorPosition);
 
@@ -146,7 +152,7 @@ void Layer::cancelDragging()
 
 void Layer::invalidate()
 {
-  context.getContext().refresh();
+  window.getContext().refresh();
 }
 
 bool Layer::hasCapturedCursor() const
@@ -176,9 +182,9 @@ Drawer& Layer::getDrawer() const
   return drawer;
 }
 
-input::Context& Layer::getInputContext() const
+input::Window& Layer::getWindow() const
 {
-  return context;
+  return window;
 }
 
 const WidgetList& Layer::getRootWidgets() const
@@ -243,8 +249,8 @@ void Layer::updateHoveredWidget()
   if (captureWidget)
     return;
 
-  vec2 cursorPosition = vec2(context.getCursorPosition());
-  cursorPosition.y = context.getHeight() - cursorPosition.y;
+  vec2 cursorPosition = vec2(window.getCursorPosition());
+  cursorPosition.y = window.getHeight() - cursorPosition.y;
 
   Widget* newWidget = findWidgetByPoint(cursorPosition);
 
@@ -317,7 +323,7 @@ void Layer::onKeyPressed(input::Key key, bool pressed)
     activeWidget->keyPressedSignal(*activeWidget, key, pressed);
 }
 
-void Layer::onCharInput(wchar_t character)
+void Layer::onCharInput(uint32 character)
 {
   if (activeWidget)
     activeWidget->charInputSignal(*activeWidget, character);
@@ -327,8 +333,8 @@ void Layer::onCursorMoved(const ivec2& position)
 {
   updateHoveredWidget();
 
-  vec2 cursorPosition = vec2(context.getCursorPosition());
-  cursorPosition.y = context.getHeight() - cursorPosition.y;
+  vec2 cursorPosition = vec2(window.getCursorPosition());
+  cursorPosition.y = window.getHeight() - cursorPosition.y;
 
   if (hoveredWidget)
     hoveredWidget->cursorMovedSignal(*hoveredWidget, cursorPosition);
@@ -349,8 +355,8 @@ void Layer::onCursorMoved(const ivec2& position)
 
 void Layer::onButtonClicked(input::Button button, bool clicked)
 {
-  vec2 cursorPosition = vec2(context.getCursorPosition());
-  cursorPosition.y = context.getHeight() - cursorPosition.y;
+  vec2 cursorPosition = vec2(window.getCursorPosition());
+  cursorPosition.y = window.getHeight() - cursorPosition.y;
 
   if (clicked)
   {
@@ -360,7 +366,7 @@ void Layer::onButtonClicked(input::Button button, bool clicked)
       clickedWidget = captureWidget;
     else
     {
-      for (WidgetList::reverse_iterator w = roots.rbegin();  w != roots.rend();  w++)
+      for (auto w = roots.rbegin();  w != roots.rend();  w++)
       {
         if ((*w)->isVisible())
         {
@@ -412,10 +418,10 @@ void Layer::onButtonClicked(input::Button button, bool clicked)
   }
 }
 
-void Layer::onWheelTurned(int offset)
+void Layer::onScrolled(double x, double y)
 {
   if (hoveredWidget)
-    hoveredWidget->wheelTurnedSignal(*hoveredWidget, offset);
+    hoveredWidget->scrolledSignal(*hoveredWidget, x, y);
 }
 
 void Layer::onFocusChanged(bool activated)
@@ -429,8 +435,8 @@ void Layer::onFocusChanged(bool activated)
 
 ///////////////////////////////////////////////////////////////////////
 
-LayerStack::LayerStack(input::Context& initContext):
-  context(initContext),
+LayerStack::LayerStack(input::Window& initWindow):
+  window(initWindow),
   width(0),
   height(0)
 {
@@ -438,7 +444,7 @@ LayerStack::LayerStack(input::Context& initContext):
 
 void LayerStack::update() const
 {
-  for (LayerList::const_iterator l = layers.begin();  l != layers.end();  l++)
+  for (auto l = layers.begin();  l != layers.end();  l++)
     (*l)->update();
 }
 
@@ -457,20 +463,20 @@ void LayerStack::push(Layer& layer)
   layers.push_back(&layer);
   layer.stack = this;
   layer.setSize(width, height);
-  context.setTarget(&layer);
+  window.setTarget(&layer);
 }
 
 void LayerStack::pop()
 {
   if (!layers.empty())
   {
-    context.setTarget(NULL);
+    window.setTarget(NULL);
     layers.back()->stack = NULL;
     layers.pop_back();
   }
 
   if (!layers.empty())
-    context.setTarget(layers.back());
+    window.setTarget(layers.back());
 }
 
 void LayerStack::empty()
@@ -489,7 +495,7 @@ void LayerStack::setSize(unsigned int newWidth, unsigned int newHeight)
   width = newWidth;
   height = newHeight;
 
-  for (LayerList::const_iterator l = layers.begin();  l != layers.end();  l++)
+  for (auto l = layers.begin();  l != layers.end();  l++)
     (*l)->setSize(newWidth, newHeight);
 }
 

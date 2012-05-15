@@ -99,15 +99,15 @@ GLenum convertToGL(ImageFramebuffer::Attachment attachment)
   switch (attachment)
   {
     case ImageFramebuffer::COLOR_BUFFER0:
-      return GL_COLOR_ATTACHMENT0_EXT;
+      return GL_COLOR_ATTACHMENT0;
     case ImageFramebuffer::COLOR_BUFFER1:
-      return GL_COLOR_ATTACHMENT1_EXT;
+      return GL_COLOR_ATTACHMENT1;
     case ImageFramebuffer::COLOR_BUFFER2:
-      return GL_COLOR_ATTACHMENT2_EXT;
+      return GL_COLOR_ATTACHMENT2;
     case ImageFramebuffer::COLOR_BUFFER3:
-      return GL_COLOR_ATTACHMENT3_EXT;
+      return GL_COLOR_ATTACHMENT3;
     case ImageFramebuffer::DEPTH_BUFFER:
-      return GL_DEPTH_ATTACHMENT_EXT;
+      return GL_DEPTH_ATTACHMENT;
   }
 
   panic("Invalid image framebuffer attachment %u", attachment);
@@ -199,7 +199,7 @@ void VertexBuffer::unlock()
   locked = false;
 }
 
-void VertexBuffer::copyFrom(const void* source, unsigned int sourceCount, unsigned int start)
+void VertexBuffer::copyFrom(const void* source, size_t sourceCount, size_t start)
 {
   if (locked)
   {
@@ -223,7 +223,7 @@ void VertexBuffer::copyFrom(const void* source, unsigned int sourceCount, unsign
 #endif
 }
 
-void VertexBuffer::copyTo(void* target, unsigned int targetCount, unsigned int start)
+void VertexBuffer::copyTo(void* target, size_t targetCount, size_t start)
 {
   if (locked)
   {
@@ -257,7 +257,7 @@ const VertexFormat& VertexBuffer::getFormat() const
   return format;
 }
 
-unsigned int VertexBuffer::getCount() const
+size_t VertexBuffer::getCount() const
 {
   return count;
 }
@@ -268,7 +268,7 @@ size_t VertexBuffer::getSize() const
 }
 
 Ref<VertexBuffer> VertexBuffer::create(Context& context,
-                                       unsigned int count,
+                                       size_t count,
                                        const VertexFormat& format,
                                        Usage usage)
 {
@@ -295,7 +295,7 @@ VertexBuffer::VertexBuffer(const VertexBuffer& source):
 }
 
 bool VertexBuffer::init(const VertexFormat& initFormat,
-                        unsigned int initCount,
+                        size_t initCount,
                         Usage initUsage)
 {
   format = initFormat;
@@ -380,7 +380,7 @@ void IndexBuffer::unlock()
   locked = false;
 }
 
-void IndexBuffer::copyFrom(const void* source, unsigned int sourceCount, unsigned int start)
+void IndexBuffer::copyFrom(const void* source, size_t sourceCount, size_t start)
 {
   if (locked)
   {
@@ -404,7 +404,7 @@ void IndexBuffer::copyFrom(const void* source, unsigned int sourceCount, unsigne
 #endif
 }
 
-void IndexBuffer::copyTo(void* target, unsigned int targetCount, unsigned int start)
+void IndexBuffer::copyTo(void* target, size_t targetCount, size_t start)
 {
   if (locked)
   {
@@ -438,7 +438,7 @@ IndexBuffer::Usage IndexBuffer::getUsage() const
   return usage;
 }
 
-unsigned int IndexBuffer::getCount() const
+size_t IndexBuffer::getCount() const
 {
   return count;
 }
@@ -449,7 +449,7 @@ size_t IndexBuffer::getSize() const
 }
 
 Ref<IndexBuffer> IndexBuffer::create(Context& context,
-                                     unsigned int count,
+                                     size_t count,
                                      Type type,
                                      Usage usage)
 {
@@ -491,7 +491,7 @@ IndexBuffer::IndexBuffer(const IndexBuffer& source):
   panic("Index buffers may not be copied");
 }
 
-bool IndexBuffer::init(unsigned int initCount, Type initType, Usage initUsage)
+bool IndexBuffer::init(size_t initCount, Type initType, Usage initUsage)
 {
   type = initType;
   usage = initUsage;
@@ -542,8 +542,8 @@ VertexRange::VertexRange(VertexBuffer& initVertexBuffer):
 }
 
 VertexRange::VertexRange(VertexBuffer& initVertexBuffer,
-                         unsigned int initStart,
-                         unsigned int initCount):
+                         size_t initStart,
+                         size_t initCount):
   vertexBuffer(&initVertexBuffer),
   start(initStart),
   count(initCount)
@@ -598,12 +598,12 @@ VertexBuffer* VertexRange::getVertexBuffer() const
   return vertexBuffer;
 }
 
-unsigned int VertexRange::getStart() const
+size_t VertexRange::getStart() const
 {
   return start;
 }
 
-unsigned int VertexRange::getCount() const
+size_t VertexRange::getCount() const
 {
   return count;
 }
@@ -626,8 +626,8 @@ IndexRange::IndexRange(IndexBuffer& initIndexBuffer):
 }
 
 IndexRange::IndexRange(IndexBuffer& initIndexBuffer,
-                       unsigned int initStart,
-                       unsigned int initCount):
+                       size_t initStart,
+                       size_t initCount):
   indexBuffer(&initIndexBuffer),
   start(initStart),
   count(initCount)
@@ -682,12 +682,12 @@ IndexBuffer* IndexRange::getIndexBuffer() const
   return indexBuffer;
 }
 
-unsigned int IndexRange::getStart() const
+size_t IndexRange::getStart() const
 {
   return start;
 }
 
-unsigned int IndexRange::getCount() const
+size_t IndexRange::getCount() const
 {
   return count;
 }
@@ -755,8 +755,8 @@ PrimitiveRange::PrimitiveRange(PrimitiveType initType,
 
 PrimitiveRange::PrimitiveRange(PrimitiveType initType,
                                VertexBuffer& initVertexBuffer,
-                               unsigned int initStart,
-                               unsigned int initCount):
+                               size_t initStart,
+                               size_t initCount):
   type(initType),
   vertexBuffer(&initVertexBuffer),
   indexBuffer(NULL),
@@ -768,8 +768,8 @@ PrimitiveRange::PrimitiveRange(PrimitiveType initType,
 PrimitiveRange::PrimitiveRange(PrimitiveType initType,
                                VertexBuffer& initVertexBuffer,
                                IndexBuffer& initIndexBuffer,
-                               unsigned int initStart,
-                               unsigned int initCount):
+                               size_t initStart,
+                               size_t initCount):
   type(initType),
   vertexBuffer(&initVertexBuffer),
   indexBuffer(&initIndexBuffer),
@@ -801,12 +801,12 @@ IndexBuffer* PrimitiveRange::getIndexBuffer() const
   return indexBuffer;
 }
 
-unsigned int PrimitiveRange::getStart() const
+size_t PrimitiveRange::getStart() const
 {
   return start;
 }
 
-unsigned int PrimitiveRange::getCount() const
+size_t PrimitiveRange::getCount() const
 {
   return count;
 }
@@ -877,7 +877,7 @@ size_t Image::getSize() const
 RenderBuffer::~RenderBuffer()
 {
   if (bufferID)
-    glDeleteRenderbuffersEXT(1, &bufferID);
+    glDeleteRenderbuffers(1, &bufferID);
 
   if (Stats* stats = context.getStats())
     stats->removeRenderBuffer(getSize());
@@ -929,12 +929,12 @@ bool RenderBuffer::init(const PixelFormat& initFormat,
   width = initWidth;
   height = initHeight;
 
-  glGenRenderbuffersEXT(1, &bufferID);
-  glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, bufferID);
-  glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT,
-                           convertToGL(format.getSemantic()),
-                           width,
-                           height);
+  glGenRenderbuffers(1, &bufferID);
+  glBindRenderbuffer(GL_RENDERBUFFER, bufferID);
+  glRenderbufferStorage(GL_RENDERBUFFER,
+                        convertToGL(format.getSemantic()),
+                        width,
+                        height);
 
   if (!checkGL("Error during creation of render buffer of format \'%s\'",
                format.asString().c_str()))
@@ -950,18 +950,18 @@ bool RenderBuffer::init(const PixelFormat& initFormat,
 
 void RenderBuffer::attach(int attachment, unsigned int z)
 {
-  glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,
-                               attachment,
-                               GL_RENDERBUFFER_EXT,
-                               bufferID);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER,
+                            attachment,
+                            GL_RENDERBUFFER,
+                            bufferID);
 }
 
 void RenderBuffer::detach(int attachment)
 {
-  glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,
-                               attachment,
-                               GL_RENDERBUFFER_EXT,
-                               0);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER,
+                            attachment,
+                            GL_RENDERBUFFER,
+                            0);
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -980,30 +980,17 @@ void Framebuffer::setSRGB(bool enabled)
   if (sRGB == enabled)
     return;
 
-  if (!GLEW_EXT_framebuffer_sRGB)
-  {
-    logError("Cannot enable sRGB framebuffer encoding: "
-             "GL_EXT_framebuffer_sRGB is missing");
-    return;
-  }
-
   Framebuffer& previous = context.getCurrentFramebuffer();
   apply();
 
   if (enabled)
   {
-    GLboolean capable;
-    glGetBooleanv(GL_FRAMEBUFFER_SRGB_CAPABLE_EXT, &capable);
-
-    if (!capable)
-      logError("Framebuffer is not sRGB capable");
-
-    glEnable(GL_FRAMEBUFFER_SRGB_EXT);
+    glEnable(GL_FRAMEBUFFER_SRGB);
     checkGL("Failed to enable framebuffer sRGB encoding");
   }
   else
   {
-    glDisable(GL_FRAMEBUFFER_SRGB_EXT);
+    glDisable(GL_FRAMEBUFFER_SRGB);
     checkGL("Failed to disable framebuffer sRGB encoding");
   }
 
@@ -1074,7 +1061,7 @@ DefaultFramebuffer::DefaultFramebuffer(Context& context):
 
 void DefaultFramebuffer::apply() const
 {
-  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 #if WENDY_DEBUG
   checkGL("Error when applying default framebuffer");
@@ -1086,7 +1073,7 @@ void DefaultFramebuffer::apply() const
 ImageFramebuffer::~ImageFramebuffer()
 {
   if (bufferID)
-    glDeleteFramebuffersEXT(1, &bufferID);
+    glDeleteFramebuffers(1, &bufferID);
 }
 
 unsigned int ImageFramebuffer::getWidth() const
@@ -1154,19 +1141,20 @@ bool ImageFramebuffer::setBuffer(Attachment attachment, Image* newImage, unsigne
 {
   if (isColorAttachment(attachment))
   {
-    unsigned int index = attachment - COLOR_BUFFER0;
+    const Limits& limits = context.getLimits();
+    const unsigned int index = attachment - COLOR_BUFFER0;
 
-    if (index >= context.getLimits().getMaxColorAttachments())
+    if (index >= limits.maxColorAttachments)
     {
       logError("OpenGL context supports at most %u FBO color attachments",
-               context.getLimits().getMaxColorAttachments());
+               limits.maxColorAttachments);
       return false;
     }
 
-    if (index >= context.getLimits().getMaxDrawBuffers())
+    if (index >= limits.maxDrawBuffers)
     {
       logError("OpenGL context supports at most %u draw buffers",
-               context.getLimits().getMaxDrawBuffers());
+               limits.maxDrawBuffers);
       return false;
     }
   }
@@ -1203,7 +1191,7 @@ ImageFramebuffer::ImageFramebuffer(Context& context):
 
 bool ImageFramebuffer::init()
 {
-  glGenFramebuffersEXT(1, &bufferID);
+  glGenFramebuffers(1, &bufferID);
 
 #if WENDY_DEBUG
   if (!checkGL("Error during image framebuffer creation"))
@@ -1215,7 +1203,7 @@ bool ImageFramebuffer::init()
 
 void ImageFramebuffer::apply() const
 {
-  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, bufferID);
+  glBindFramebuffer(GL_FRAMEBUFFER, bufferID);
 
   GLenum enables[5];
   size_t count = 0;

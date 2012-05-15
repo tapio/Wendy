@@ -68,7 +68,7 @@ const char* getErrorString(unsigned int error)
       return "stack underflow";
     case GL_OUT_OF_MEMORY:
       return "out of memory";
-    case GL_INVALID_FRAMEBUFFER_OPERATION_EXT:
+    case GL_INVALID_FRAMEBUFFER_OPERATION:
       return "invalid framebuffer operation";
   }
 
@@ -175,9 +175,9 @@ GLenum convertToGL(PixelFormat::Semantic semantic)
 {
   switch (semantic)
   {
-    case PixelFormat::R:
+    case PixelFormat::L:
       return GL_LUMINANCE;
-    case PixelFormat::RG:
+    case PixelFormat::LA:
       return GL_LUMINANCE_ALPHA;
     case PixelFormat::RGB:
       return GL_RGB;
@@ -199,7 +199,7 @@ GLenum convertToGL(const PixelFormat& format, bool sRGB)
     {
       switch (format.getSemantic())
       {
-        case PixelFormat::R:
+        case PixelFormat::L:
         {
           if (sRGB)
             return GL_SLUMINANCE8;
@@ -207,7 +207,7 @@ GLenum convertToGL(const PixelFormat& format, bool sRGB)
             return GL_LUMINANCE8;
         }
 
-        case PixelFormat::RG:
+        case PixelFormat::LA:
         {
           if (sRGB)
             return GL_SLUMINANCE8_ALPHA8;
@@ -272,9 +272,9 @@ GLenum convertToGL(const PixelFormat& format, bool sRGB)
 
       switch (format.getSemantic())
       {
-        case PixelFormat::R:
+        case PixelFormat::L:
           return GL_LUMINANCE16F_ARB;
-        case PixelFormat::RG:
+        case PixelFormat::LA:
           return GL_LUMINANCE_ALPHA16F_ARB;
         case PixelFormat::RGB:
           return GL_RGB16F_ARB;
@@ -297,9 +297,9 @@ GLenum convertToGL(const PixelFormat& format, bool sRGB)
 
       switch (format.getSemantic())
       {
-        case PixelFormat::R:
+        case PixelFormat::L:
           return GL_LUMINANCE32F_ARB;
-        case PixelFormat::RG:
+        case PixelFormat::LA:
           return GL_LUMINANCE_ALPHA32F_ARB;
         case PixelFormat::RGB:
           return GL_RGB32F_ARB;
@@ -332,12 +332,33 @@ GLenum convertToGL(TextureType type)
     case TEXTURE_3D:
       return GL_TEXTURE_3D;
     case TEXTURE_RECT:
-      return GL_TEXTURE_RECTANGLE_ARB;
+      return GL_TEXTURE_RECTANGLE;
     case TEXTURE_CUBE:
       return GL_TEXTURE_CUBE_MAP;
   }
 
   panic("No OpenGL equivalent for texture type %u", type);
+}
+
+GLboolean getBoolean(GLenum token)
+{
+  GLboolean value;
+  glGetBooleanv(token, &value);
+  return value;
+}
+
+GLint getInteger(GLenum token)
+{
+  GLint value;
+  glGetIntegerv(token, &value);
+  return value;
+}
+
+GLfloat getFloat(GLenum token)
+{
+  GLfloat value;
+  glGetFloatv(token, &value);
+  return value;
 }
 
 ///////////////////////////////////////////////////////////////////////

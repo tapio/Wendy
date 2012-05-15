@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1" ?>
-<material version="6">
-  <technique type="forward" quality="1">
+<material version="8">
+  <technique type="forward">
     <pass>
-      <program path="cube_geometry.program" />
+      <program vs="geom.vs" fs="geom.fs" gs="geom.gs" />
     </pass>
   </technique>
 </material>

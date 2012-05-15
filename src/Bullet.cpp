@@ -32,8 +32,6 @@
 
 #include <wendy/Bullet.h>
 
-#include <btBulletWorldImporter.h>
-
 ///////////////////////////////////////////////////////////////////////
 
 namespace wendy
@@ -82,7 +80,7 @@ btVector3 convert(const vec3& vector)
   return btVector3(vector.x, vector.y, vector.z);
 }
 
-btTriangleMesh* convert(const Mesh& data)
+btTriangleMesh* convert(const Mesh& data, bool removeDuplicateVertices)
 {
   btTriangleMesh* mesh;
 
@@ -91,104 +89,18 @@ btTriangleMesh* convert(const Mesh& data)
   else
     mesh = new btTriangleMesh(false);
 
-  for (Mesh::GeometryList::const_iterator g = data.geometries.begin();
-       g != data.geometries.end();
-       g++)
+  for (auto s = data.sections.begin();  s != data.sections.end();  s++)
   {
-    for (MeshGeometry::TriangleList::const_iterator t = g->triangles.begin();
-         t != g->triangles.end();
-         t++)
+    for (auto t = s->triangles.begin();  t != s->triangles.end();  t++)
     {
       mesh->addTriangle(convert(data.vertices[t->indices[0]].position),
                         convert(data.vertices[t->indices[1]].position),
                         convert(data.vertices[t->indices[2]].position),
-                        true);
+                        removeDuplicateVertices);
     }
   }
 
   return mesh;
-}
-
-///////////////////////////////////////////////////////////////////////
-
-BvhMeshShape::BvhMeshShape(const ResourceInfo& info):
-  Resource(info)
-{
-}
-
-///////////////////////////////////////////////////////////////////////
-
-BvhMeshShapeReader::BvhMeshShapeReader(ResourceCache& cache):
-  ResourceReader(cache)
-{
-}
-
-Ref<BvhMeshShape> BvhMeshShapeReader::read(const String& name, const Path& path)
-{
-  btBulletWorldImporter importer;
-
-  if (!importer.loadFile(path.asString().c_str()))
-  {
-    logError("Failed to load mesh shape file \'%s\'", name.c_str());
-    return NULL;
-  }
-
-  if (!importer.getNumCollisionShapes())
-  {
-    logError("Mesh shape file \'%s\' does not contain any shapes", name.c_str());
-    return NULL;
-  }
-
-  Ref<BvhMeshShape> result = new BvhMeshShape(ResourceInfo(cache, name, path));
-
-  result->shape = (btBvhTriangleMeshShape*) importer.getCollisionShapeByIndex(0);
-  if (!result->shape)
-  {
-    logError("No mesh shapes in \'%s\'", name.c_str());
-    return NULL;
-  }
-
-  result->mesh = (btTriangleIndexVertexArray*) result->shape->getMeshInterface();
-  result->bvh = result->shape->getOptimizedBvh();
-  result->info = result->shape->getTriangleInfoMap();
-
-  importer.detachBvhTriangleMeshShape(result->shape);
-  importer.detachMeshInterface(result->mesh);
-  importer.detachOptimizedBvh(result->bvh);
-  importer.detachTriangleInfoMap(result->info);
-  importer.deleteAllData();
-
-  return result;
-}
-
-///////////////////////////////////////////////////////////////////////
-
-bool BvhMeshShapeWriter::write(const Path& path, const btBvhTriangleMeshShape& shape)
-{
-  std::ofstream stream(path.asString().c_str());
-  if (!stream.is_open())
-  {
-    logError("Failed to open mesh shape file \'%s\' for writing", path.asString().c_str());
-    return false;
-  }
-
-  btDefaultSerializer serializer;
-
-  serializer.startSerialization();
-  shape.serializeSingleBvh(&serializer);
-  serializer.finishSerialization();
-
-  stream.write(reinterpret_cast<const char*>(serializer.getBufferPointer()),
-               serializer.getCurrentBufferSize());
-
-  if (stream.bad())
-  {
-    logError("Failed to write BVH data to \'%s\'", path.asString().c_str());
-    return false;
-  }
-
-  stream.close();
-  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////

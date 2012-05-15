@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="ISO-8859-1" ?>
-<material version="6">
-  <technique type="deferred" quality="1">
+<material version="8">
+  <technique type="deferred">
     <pass>
-      <program path="wendy/DeferredMappedNormalSpecular.program">
-        <sampler name="colormap" texture="wire_diff.texture" />
-        <sampler name="normalmap" texture="wire_ns.texture" />
+      <program vs="wendy/DeferredMapped.vs" fs="wendy/DeferredMapped.fs">
+        <define name="SPECULAR_MASK" />
+        <sampler name="colormap" image="wire_diff.png" filter="trilinear" address="wrap" />
+        <sampler name="normalmap" image="wire_ns.png" filter="trilinear" address="wrap" />
       </program>
     </pass>
   </technique>

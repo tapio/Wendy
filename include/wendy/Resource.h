@@ -78,6 +78,22 @@ public:
   bool addSearchPath(const Path& path);
   void removeSearchPath(const Path& path);
   Resource* findResource(const String& name) const;
+  template <typename T>
+  T* find(const String& name) const
+  {
+    Resource* cached = findResource(name);
+    if (!cached)
+      return NULL;
+
+    T* cast = dynamic_cast<T*>(cached);
+    if (!cast)
+    {
+      logError("Resource \'%s\' exists as another type", name.c_str());
+      return NULL;
+    }
+
+    return cast;
+  }
   Path findFile(const String& name) const;
   const PathList& getSearchPaths() const;
 private:
@@ -92,44 +108,28 @@ template <typename T>
 class ResourceReader
 {
 public:
-  ResourceReader(ResourceCache& cache);
-  Ref<T> read(const String& name);
+  ResourceReader(ResourceCache& initCache):
+    cache(initCache)
+  {
+  }
+  Ref<T> read(const String& name)
+  {
+    if (T* cached = cache.find<T>(name))
+      return cached;
+
+    const Path path = cache.findFile(name);
+    if (path.isEmpty())
+    {
+      logError("Failed to find resource \'%s\'", name.c_str());
+      return NULL;
+    }
+
+    return read(name, path);
+  }
   virtual Ref<T> read(const String& name, const Path& path) = 0;
 protected:
   ResourceCache& cache;
 };
-
-///////////////////////////////////////////////////////////////////////
-
-template <typename T>
-inline ResourceReader<T>::ResourceReader(ResourceCache& initCache):
-  cache(initCache)
-{
-}
-
-template <typename T>
-inline Ref<T> ResourceReader<T>::read(const String& name)
-{
-  if (Resource* cached = cache.findResource(name))
-  {
-    if (T* cast = dynamic_cast<T*>(cached))
-      return cast;
-    else
-    {
-      logError("Resource \'%s\' exists as another type", name.c_str());
-      return NULL;
-    }
-  }
-
-  const Path path = cache.findFile(name);
-  if (path.isEmpty())
-  {
-    logError("Failed to find resource \'%s\'", name.c_str());
-    return NULL;
-  }
-
-  return read(name, path);
-}
 
 ///////////////////////////////////////////////////////////////////////
 

@@ -43,8 +43,8 @@ public:
   enum Semantic
   {
     NONE,
-    R,
-    RG,
+    L,
+    LA,
     RGB,
     RGBA,
     DEPTH
@@ -77,6 +77,10 @@ public:
   /*! @return @c true if the pixel formats are not equal, @c false otherwise.
    */
   bool operator != (const PixelFormat& other) const;
+  /*! @return @c true if this pixel format describes to a physical pixel
+   *  format.
+   */
+  bool isValid() const;
   /*! @return The size, in bytes, of a pixel in this pixel format.
    */
   size_t getSize() const;
@@ -95,14 +99,14 @@ public:
   /*! @return A string representation of this pixel format.
    */
   String asString() const;
-  static const PixelFormat R8;
-  static const PixelFormat R16;
-  static const PixelFormat R16F;
-  static const PixelFormat R32F;
-  static const PixelFormat RG8;
-  static const PixelFormat RG16;
-  static const PixelFormat RG16F;
-  static const PixelFormat RG32F;
+  static const PixelFormat L8;
+  static const PixelFormat L16;
+  static const PixelFormat L16F;
+  static const PixelFormat L32F;
+  static const PixelFormat LA8;
+  static const PixelFormat LA16;
+  static const PixelFormat LA16F;
+  static const PixelFormat LA32F;
   static const PixelFormat RGB8;
   static const PixelFormat RGB16;
   static const PixelFormat RGB16F;

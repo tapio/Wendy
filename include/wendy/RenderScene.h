@@ -45,6 +45,8 @@ class Scene;
 
 ///////////////////////////////////////////////////////////////////////
 
+#pragma pack(push, 1)
+
 /*! @ingroup renderer
  */
 class SortKey
@@ -52,24 +54,29 @@ class SortKey
 public:
   static SortKey makeOpaqueKey(uint8 layer, uint16 state, float depth);
   static SortKey makeBlendedKey(uint8 layer, float depth);
+  SortKey(): value(0) { }
+  SortKey(uint64 value): value(value) { }
+  operator uint64 () const { return value; }
   union
   {
     uint64 value;
     struct
     {
-      unsigned layer : 8;
-      unsigned state : 16;
-      unsigned depth : 24;
       unsigned index : 16;
+      unsigned depth : 24;
+      unsigned state : 16;
+      unsigned layer : 8;
     };
   };
 };
+
+#pragma pack(pop)
 
 ///////////////////////////////////////////////////////////////////////
 
 /*! @ingroup renderer
  */
-typedef std::vector<SortKey> SortKeyList;
+typedef std::vector<uint64> SortKeyList;
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -93,7 +100,7 @@ public:
   GL::PrimitiveRange range;
   /*! The render technique to use.
    */
-  const GL::RenderState* state;
+  const Pass* state;
   /*! The local-to-world transformation.  Leave this set to identity if the
    *  geometry already is in world space.
    */
@@ -144,28 +151,35 @@ private:
 
 /*! @ingroup renderer
  */
-class Scene : public LightState
+class Scene
 {
 public:
-  Scene(GeometryPool& pool, Technique::Type type);
+  Scene(GeometryPool& pool, Phase phase = PHASE_DEFAULT);
   void addOperation(const Operation& operation, float depth, uint8 layer = 0);
   void createOperations(const mat4& transform,
                         const GL::PrimitiveRange& range,
                         const Material& material,
                         float depth);
   void removeOperations();
+  void attachLight(Light& light);
+  void detachLights();
+  const LightList& getLights() const;
+  const vec3& getAmbientIntensity() const;
+  void setAmbientIntensity(const vec3& newIntensity);
   GeometryPool& getGeometryPool() const;
   Queue& getOpaqueQueue();
   const Queue& getOpaqueQueue() const;
   Queue& getBlendedQueue();
   const Queue& getBlendedQueue() const;
-  Technique::Type getTechniqueType() const;
-  void setTechniqueType(Technique::Type newType);
+  Phase getPhase() const;
+  void setPhase(Phase newPhase);
 private:
-  GeometryPool& pool;
-  Technique::Type type;
+  Ref<GeometryPool> pool;
+  Phase phase;
   Queue opaqueQueue;
   Queue blendedQueue;
+  LightList lights;
+  vec3 ambient;
 };
 
 ///////////////////////////////////////////////////////////////////////

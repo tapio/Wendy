@@ -56,7 +56,7 @@ Slider::Slider(Layer& layer, Orientation initOrientation):
 
   getKeyPressedSignal().connect(*this, &Slider::onKeyPressed);
   getButtonClickedSignal().connect(*this, &Slider::onButtonClicked);
-  getWheelTurnedSignal().connect(*this, &Slider::onWheelTurned);
+  getScrolledSignal().connect(*this, &Slider::onScrolled);
   getDragMovedSignal().connect(*this, &Slider::onDragMoved);
 
   setDraggable(true);
@@ -119,24 +119,25 @@ void Slider::draw() const
   {
     drawer.drawWell(area, getState());
 
-    const float position = (value - minValue) / (maxValue - minValue);
-    const float em = drawer.getCurrentEM();
+    const float fraction = (value - minValue) / (maxValue - minValue);
+    const float width = getWidth();
+    const float height = getHeight();
 
     Rect handleArea;
 
     if (orientation == HORIZONTAL)
     {
-      handleArea.set(area.position.x + position * (area.size.x - em),
+      handleArea.set(area.position.x + fraction * (width - height),
                      area.position.y,
-                     em,
-                     area.size.y);
+                     height,
+                     height);
     }
     else
     {
       handleArea.set(area.position.x,
-                     area.position.y + position * (area.size.y - em),
-                     area.size.x,
-                     em);
+                     area.position.y + fraction * (height - width),
+                     width,
+                     width);
     }
 
     drawer.drawHandle(handleArea, getState());
@@ -180,9 +181,12 @@ void Slider::onKeyPressed(Widget& widget, input::Key key, bool pressed)
   }
 }
 
-void Slider::onWheelTurned(Widget& widget, int offset)
+void Slider::onScrolled(Widget& widget, double x, double y)
 {
-  setValue(value + offset * stepSize, true);
+  if (orientation == HORIZONTAL)
+    setValue(value + float(x) * stepSize, true);
+  else
+    setValue(value + float(y) * stepSize, true);
 }
 
 void Slider::onDragMoved(Widget& widget, const vec2& position)
@@ -192,16 +196,17 @@ void Slider::onDragMoved(Widget& widget, const vec2& position)
 
 void Slider::setValue(const vec2& position)
 {
-  const float em = getLayer().getDrawer().getCurrentEM();
+  const float width = getWidth();
+  const float height = getHeight();
 
-  float scale;
+  float fraction;
 
   if (orientation == HORIZONTAL)
-    scale = (position.x - em / 2.f) / (getWidth() - em);
+    fraction = clamp((position.x - height / 2.f) / (width - height), 0.f, 1.f);
   else
-    scale = (position.y - em / 2.f) / (getHeight() - em);
+    fraction = clamp((position.y - width / 2.f) / (height - width), 0.f, 1.f);
 
-  setValue(minValue + (maxValue - minValue) * scale, true);
+  setValue(minValue + (maxValue - minValue) * fraction, true);
 }
 
 void Slider::setValue(float newValue, bool notify)

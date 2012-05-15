@@ -25,8 +25,6 @@
 
 #include <wendy/Config.h>
 
-#include <wendy/Bimap.h>
-
 #include <wendy/GLBuffer.h>
 #include <wendy/GLProgram.h>
 #include <wendy/GLTexture.h>
@@ -38,8 +36,6 @@
 #include <internal/GLHelper.h>
 
 #include <glm/gtx/bit.hpp>
-
-#include <pugixml.hpp>
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -109,7 +105,7 @@ GLenum convertToProxyGL(TextureType type)
     case TEXTURE_3D:
       return GL_PROXY_TEXTURE_3D;
     case TEXTURE_RECT:
-      return GL_PROXY_TEXTURE_RECTANGLE_ARB;
+      return GL_PROXY_TEXTURE_RECTANGLE;
     case TEXTURE_CUBE:
       return GL_PROXY_TEXTURE_CUBE_MAP;
   }
@@ -156,12 +152,6 @@ const char* asString(TextureType type)
 
   panic("Invalid texture type %u", type);
 }
-
-Bimap<String, FilterMode> filterModeMap;
-Bimap<String, AddressMode> addressModeMap;
-Bimap<String, TextureType> typeMap;
-
-const unsigned int TEXTURE_XML_VERSION = 3;
 
 } /*namespace*/
 
@@ -254,9 +244,13 @@ bool TextureImage::copyFrom(const wendy::Image& source,
   return true;
 }
 
-bool TextureImage::copyTo(wendy::Image& result) const
+Ref<wendy::Image> TextureImage::getData() const
 {
-  result = wendy::Image(texture.getCache(), texture.format, width, height, depth);
+  Ref<wendy::Image> result = wendy::Image::create(texture.getCache(),
+                                                  texture.format,
+                                                  width,
+                                                  height,
+                                                  depth);
 
   texture.context.setCurrentTexture(&texture);
 
@@ -264,18 +258,18 @@ bool TextureImage::copyTo(wendy::Image& result) const
                 level,
                 convertToGL(texture.format.getSemantic()),
                 convertToGL(texture.format.getType()),
-                result.getPixels());
+                result->getPixels());
 
 #if WENDY_DEBUG
   if (!checkGL("Error during copy to image from level %u of texture \'%s\'",
                level,
                texture.getName().c_str()))
   {
-    return false;
+    return NULL;
   }
 #endif
 
-  return true;
+  return result;
 }
 
 unsigned int TextureImage::getWidth() const
@@ -327,28 +321,28 @@ void TextureImage::attach(int attachment, unsigned int z)
 {
   if (texture.is1D())
   {
-    glFramebufferTexture1DEXT(GL_FRAMEBUFFER_EXT,
-                              attachment,
-                              convertToGL(texture.type),
-                              texture.textureID,
-                              level);
+    glFramebufferTexture1D(GL_FRAMEBUFFER,
+                           attachment,
+                           convertToGL(texture.type),
+                           texture.textureID,
+                           level);
   }
   else if (texture.is3D())
   {
-    glFramebufferTexture3DEXT(GL_FRAMEBUFFER_EXT,
-                              attachment,
-                              convertToGL(texture.type),
-                              texture.textureID,
-                              level,
-                              z);
+    glFramebufferTexture3D(GL_FRAMEBUFFER,
+                           attachment,
+                           convertToGL(texture.type),
+                           texture.textureID,
+                           level,
+                           z);
   }
   else
   {
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT,
-                              attachment,
-                              convertToGL(texture.type),
-                              texture.textureID,
-                              level);
+    glFramebufferTexture2D(GL_FRAMEBUFFER,
+                           attachment,
+                           convertToGL(texture.type),
+                           texture.textureID,
+                           level);
   }
 
 #if WENDY_DEBUG
@@ -362,28 +356,24 @@ void TextureImage::detach(int attachment)
 {
   if (texture.is1D())
   {
-    glFramebufferTexture1DEXT(GL_FRAMEBUFFER_EXT,
-                              attachment,
-                              convertToGL(texture.type),
-                              0,
-                              0);
+    glFramebufferTexture1D(GL_FRAMEBUFFER,
+                           attachment,
+                           convertToGL(texture.type),
+                           0, 0);
   }
   else if (texture.is3D())
   {
-    glFramebufferTexture3DEXT(GL_FRAMEBUFFER_EXT,
-                              attachment,
-                              convertToGL(texture.type),
-                              0,
-                              0,
-                              0);
+    glFramebufferTexture3D(GL_FRAMEBUFFER,
+                           attachment,
+                           convertToGL(texture.type),
+                           0, 0, 0);
   }
   else
   {
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT,
-                              attachment,
-                              convertToGL(texture.type),
-                              0,
-                              0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER,
+                           attachment,
+                           convertToGL(texture.type),
+                           0, 0);
   }
 
 #if WENDY_DEBUG
@@ -406,7 +396,16 @@ Texture::~Texture()
 
 void Texture::generateMipmaps()
 {
-  glGenerateMipmapEXT(convertToGL(type));
+  glGenerateMipmap(convertToGL(type));
+
+  if (!hasMipmaps())
+  {
+    retrieveImages();
+
+    glTexParameteri(convertToGL(type),
+                    GL_TEXTURE_MIN_FILTER,
+                    convertToGL(filterMode, true));
+  }
 }
 
 bool Texture::is1D() const
@@ -514,9 +513,8 @@ void Texture::setAddressMode(AddressMode newMode)
     context.setCurrentTexture(this);
 
     glTexParameteri(convertToGL(type), GL_TEXTURE_WRAP_S, convertToGL(newMode));
-
-    if (type != TEXTURE_1D)
-      glTexParameteri(convertToGL(type), GL_TEXTURE_WRAP_T, convertToGL(newMode));
+    glTexParameteri(convertToGL(type), GL_TEXTURE_WRAP_T, convertToGL(newMode));
+    glTexParameteri(convertToGL(type), GL_TEXTURE_WRAP_R, convertToGL(newMode));
 
     addressMode = newMode;
   }
@@ -565,7 +563,7 @@ size_t Texture::getSize() const
 {
   size_t size = 0;
 
-  for (ImageList::const_iterator i = images.begin();  i != images.end();  i++)
+  for (auto i = images.begin();  i != images.end();  i++)
     size += (*i)->getSize();
 
   return size;
@@ -595,19 +593,40 @@ Context& Texture::getContext() const
 Ref<Texture> Texture::create(const ResourceInfo& info,
                              Context& context,
                              const TextureParams& params,
-                             const wendy::Image& source)
+                             const wendy::Image& data)
 {
   Ref<Texture> texture(new Texture(info, context));
-  if (!texture->init(params, source))
+  if (!texture->init(params, data))
     return NULL;
 
   return texture;
 }
 
-Ref<Texture> Texture::read(Context& context, const String& name)
+Ref<Texture> Texture::read(Context& context,
+                           const TextureParams& params,
+                           const String& imageName)
 {
-  TextureReader reader(context);
-  return reader.read(name);
+  ResourceCache& cache = context.getCache();
+
+  String name;
+  name += "source:";
+  name += imageName;
+  name += " mipmapped:";
+  name += params.mipmapped ? "true" : "false";
+  name += " sRGB:";
+  name += params.sRGB ? "true" : "false";
+
+  if (Ref<Texture> texture = cache.find<Texture>(name))
+    return texture;
+
+  Ref<wendy::Image> data = wendy::Image::read(cache, imageName);
+  if (!data)
+  {
+    logError("Failed to read image for texture \'%s\'", name.c_str());
+    return NULL;
+  }
+
+  return create(ResourceInfo(cache, name), context, params, *data);
 }
 
 Texture::Texture(const ResourceInfo& info, Context& initContext):
@@ -627,9 +646,9 @@ Texture::Texture(const Texture& source):
 {
 }
 
-bool Texture::init(const TextureParams& params, const wendy::Image& source)
+bool Texture::init(const TextureParams& params, const wendy::Image& data)
 {
-  format = source.getFormat();
+  format = data.getFormat();
 
   if (!convertToGL(format, params.sRGB))
   {
@@ -643,7 +662,7 @@ bool Texture::init(const TextureParams& params, const wendy::Image& source)
 
   if (params.type == TEXTURE_RECT)
   {
-    if (source.getDimensionCount() > 2)
+    if (data.getDimensionCount() > 2)
     {
       logError("Source image for rectangular texture \'%s\' has more than two dimensions",
                getName().c_str());
@@ -659,18 +678,18 @@ bool Texture::init(const TextureParams& params, const wendy::Image& source)
   }
   else if (params.type == TEXTURE_CUBE)
   {
-    if (source.getDimensionCount() > 2)
+    if (data.getDimensionCount() > 2)
     {
       logError("Source image for cubemap texture \'%s\' has more than two dimensions",
                getName().c_str());
       return false;
     }
 
-    const unsigned int width = source.getWidth();
+    const unsigned int width = data.getWidth();
 
-    if (source.getWidth() % 6 != 0 ||
-        source.getWidth() / 6 != source.getHeight() ||
-        !isPowerOfTwo(source.getHeight()))
+    if (data.getWidth() % 6 != 0 ||
+        data.getWidth() / 6 != data.getHeight() ||
+        !isPowerOfTwo(data.getHeight()))
     {
       logError("Source image for cubemap texture \'%s\' has invalid dimensions",
                getName().c_str());
@@ -679,7 +698,7 @@ bool Texture::init(const TextureParams& params, const wendy::Image& source)
   }
   else
   {
-    if (!source.isPOT())
+    if (!data.isPOT())
     {
       logWarning("Texture \'%s\' does not have power-of-two dimensions; this may cause slowdown",
                  getName().c_str());
@@ -692,15 +711,15 @@ bool Texture::init(const TextureParams& params, const wendy::Image& source)
 
   if (type == TEXTURE_CUBE)
   {
-    width = source.getWidth() / 6;
-    height = source.getHeight();
+    width = data.getWidth() / 6;
+    height = data.getHeight();
     depth = 1;
   }
   else
   {
-    width = source.getWidth();
-    height = source.getHeight();
-    depth = source.getDepth();
+    width = data.getWidth();
+    height = data.getHeight();
+    depth = data.getDepth();
   }
 
   if (type == TEXTURE_1D)
@@ -770,20 +789,18 @@ bool Texture::init(const TextureParams& params, const wendy::Image& source)
                  0,
                  convertToGL(format.getSemantic()),
                  convertToGL(format.getType()),
-                 source.getPixels());
+                 data.getPixels());
   }
   else if (type == TEXTURE_3D)
   {
     glTexImage3D(convertToGL(type),
                  0,
                  convertToGL(format, params.sRGB),
-                 width,
-                 height,
-                 depth,
+                 width, height, depth,
                  0,
                  convertToGL(format.getSemantic()),
                  convertToGL(format.getType()),
-                 source.getPixels());
+                 data.getPixels());
   }
   else if (type == TEXTURE_CUBE)
   {
@@ -797,7 +814,7 @@ bool Texture::init(const TextureParams& params, const wendy::Image& source)
       CUBE_NEGATIVE_Y
     };
 
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, source.getWidth());
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, data.getWidth());
 
     for (size_t i = 0;  i < 6;  i++)
     {
@@ -805,13 +822,12 @@ bool Texture::init(const TextureParams& params, const wendy::Image& source)
 
       glTexImage2D(convertToGL(faces[i]),
                    0,
-                   convertToGL(source.getFormat(), params.sRGB),
-                   width,
-                   height,
+                   convertToGL(data.getFormat(), params.sRGB),
+                   width, height,
                    0,
-                   convertToGL(source.getFormat().getSemantic()),
-                   convertToGL(source.getFormat().getType()),
-                   source.getPixels());
+                   convertToGL(data.getFormat().getSemantic()),
+                   convertToGL(data.getFormat().getType()),
+                   data.getPixels());
     }
 
     glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
@@ -822,24 +838,17 @@ bool Texture::init(const TextureParams& params, const wendy::Image& source)
     glTexImage2D(convertToGL(type),
                  0,
                  convertToGL(format, params.sRGB),
-                 width,
-                 height,
+                 width, height,
                  0,
                  convertToGL(format.getSemantic()),
                  convertToGL(format.getType()),
-                 source.getPixels());
+                 data.getPixels());
   }
 
   if (params.mipmapped)
     generateMipmaps();
-
-  if (type == TEXTURE_CUBE)
-  {
-    for (size_t i = 0;  i < 6;  i++)
-      levels = retrieveImages(convertToGL(CubeFace(i)), CubeFace(i));
-  }
   else
-    levels = retrieveImages(convertToGL(type), NO_CUBE_FACE);
+    retrieveImages();
 
   applyDefaults();
 
@@ -856,7 +865,20 @@ bool Texture::init(const TextureParams& params, const wendy::Image& source)
   return true;
 }
 
-unsigned int Texture::retrieveImages(unsigned int target, CubeFace face)
+void Texture::retrieveImages()
+{
+  images.clear();
+
+  if (type == TEXTURE_CUBE)
+  {
+    for (size_t i = 0;  i < 6;  i++)
+      levels = retrieveTargetImages(convertToGL(CubeFace(i)), CubeFace(i));
+  }
+  else
+    levels = retrieveTargetImages(convertToGL(type), NO_CUBE_FACE);
+}
+
+unsigned int Texture::retrieveTargetImages(unsigned int target, CubeFace face)
 {
   unsigned int level = 0;
 
@@ -881,152 +903,25 @@ unsigned int Texture::retrieveImages(unsigned int target, CubeFace face)
 
 void Texture::applyDefaults()
 {
-  // Set up filter modes
-  {
-    if (hasMipmaps())
-      glTexParameteri(convertToGL(type), GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    else
-      glTexParameteri(convertToGL(type), GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  filterMode = FILTER_BILINEAR;
 
-    glTexParameteri(convertToGL(type), GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(convertToGL(type),
+                  GL_TEXTURE_MIN_FILTER,
+                  convertToGL(filterMode, hasMipmaps()));
+  glTexParameteri(convertToGL(type),
+                  GL_TEXTURE_MAG_FILTER,
+                  convertToGL(filterMode, false));
 
-    filterMode = FILTER_BILINEAR;
-  }
+  addressMode = ADDRESS_CLAMP;
 
-  // Set up address modes
-  {
-    glTexParameteri(convertToGL(type), GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(convertToGL(type), GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(convertToGL(type), GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-    addressMode = ADDRESS_CLAMP;
-  }
+  glTexParameteri(convertToGL(type), GL_TEXTURE_WRAP_S, convertToGL(addressMode));
+  glTexParameteri(convertToGL(type), GL_TEXTURE_WRAP_T, convertToGL(addressMode));
+  glTexParameteri(convertToGL(type), GL_TEXTURE_WRAP_R, convertToGL(addressMode));
 }
 
 Texture& Texture::operator = (const Texture& source)
 {
   return *this;
-}
-
-///////////////////////////////////////////////////////////////////////
-
-TextureReader::TextureReader(Context& initContext):
-  ResourceReader(initContext.getCache()),
-  context(initContext)
-{
-  if (addressModeMap.isEmpty())
-  {
-    addressModeMap["wrap"] = ADDRESS_WRAP;
-    addressModeMap["clamp"] = ADDRESS_CLAMP;
-  }
-
-  if (filterModeMap.isEmpty())
-  {
-    filterModeMap["nearest"] = FILTER_NEAREST;
-    filterModeMap["bilinear"] = FILTER_BILINEAR;
-    filterModeMap["trilinear"] = FILTER_TRILINEAR;
-  }
-
-  if (typeMap.isEmpty())
-  {
-    typeMap["1D"] = TEXTURE_1D;
-    typeMap["2D"] = TEXTURE_2D;
-    typeMap["3D"] = TEXTURE_3D;
-    typeMap["rect"] = TEXTURE_RECT;
-    typeMap["cube"] = TEXTURE_CUBE;
-  }
-}
-
-Ref<Texture> TextureReader::read(const String& name, const Path& path)
-{
-  std::ifstream stream(path.asString().c_str());
-  if (stream.fail())
-  {
-    logError("Failed to open texture \'%s\'", name.c_str());
-    return NULL;
-  }
-
-  pugi::xml_document document;
-
-  const pugi::xml_parse_result result = document.load(stream);
-  if (!result)
-  {
-    logError("Failed to load texture \'%s\': %s",
-             name.c_str(),
-             result.description());
-    return NULL;
-  }
-
-  pugi::xml_node root = document.child("texture");
-  if (!root || root.attribute("version").as_uint() != TEXTURE_XML_VERSION)
-  {
-    logError("Texture file format mismatch in \'%s\'", name.c_str());
-    return NULL;
-  }
-
-  const String typeName(root.attribute("type").value());
-  if (!typeMap.hasKey(typeName))
-  {
-    logError("Invalid texture type \'%s\' in texture \'%s\'",
-             typeName.c_str(),
-             name.c_str());
-    return NULL;
-  }
-
-  TextureParams params(typeMap[typeName]);
-
-  if (pugi::xml_attribute a = root.attribute("mipmapped"))
-    params.mipmapped = a.as_bool();
-
-  if (pugi::xml_attribute a = root.attribute("sRGB"))
-    params.sRGB = a.as_bool();
-
-  const String imageName(root.attribute("image").value());
-  if (imageName.empty())
-  {
-    logError("No image specified for texture \'%s\'", name.c_str());
-    return NULL;
-  }
-
-  Ref<wendy::Image> image = wendy::Image::read(cache, imageName);
-  if (!image)
-  {
-    logError("Failed to load source image for texture \'%s\'", name.c_str());
-    return NULL;
-  }
-
-  const ResourceInfo info(cache, name, path);
-
-  Ref<Texture> texture = Texture::create(info, context, params, *image);
-  if (!texture)
-    return NULL;
-
-  if (pugi::xml_attribute a = root.attribute("filter"))
-  {
-    if (filterModeMap.hasKey(a.value()))
-      texture->setFilterMode(filterModeMap[a.value()]);
-    else
-    {
-      logError("Invalid filter mode name \'%s\'", a.value());
-      return NULL;
-    }
-  }
-
-  if (pugi::xml_attribute a = root.attribute("address"))
-  {
-    if (addressModeMap.hasKey(a.value()))
-      texture->setAddressMode(addressModeMap[a.value()]);
-    else
-    {
-      logError("Invalid address mode name \'%s\'", a.value());
-      return NULL;
-    }
-  }
-
-  if (pugi::xml_attribute a = root.attribute("anisotropy"))
-    texture->setMaxAnisotropy(a.as_float());
-
-  return texture;
 }
 
 ///////////////////////////////////////////////////////////////////////

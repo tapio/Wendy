@@ -158,9 +158,10 @@ public:
                 unsigned int x = 0,
                 unsigned int y = 0,
                 unsigned int z = 0);
-  /*! Copies the contents of this texture image to the specified image.
+  /*! Returns a copy the contents of this texture image.
+   *  @return An image object containing the image data.
    */
-  bool copyTo(wendy::Image& result) const;
+  Ref<wendy::Image> getData() const;
   unsigned int getWidth() const;
   unsigned int getHeight() const;
   unsigned int getDepth() const;
@@ -188,12 +189,6 @@ private:
   unsigned int depth;
   CubeFace face;
 };
-
-///////////////////////////////////////////////////////////////////////
-
-/*! @ingroup opengl
- */
-typedef Ref<TextureImage> TextureImageRef;
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -289,29 +284,28 @@ public:
    */
   Context& getContext() const;
   /*! Creates a texture from the specified image.
-   *  @param[in] info The resource info for the texture.
-   *  $param[in] context The OpenGL context within which to create the
+   *  @param[in] context The OpenGL context within which to create the
    *  texture.
    *  @param[in] params The creation parameters for the texture.
-   *  @param[in] image The image data to use.
+   *  @param[in] data The image data to use.
+   *  @return The newly created texture object.
    */
   static Ref<Texture> create(const ResourceInfo& info,
-                             Context& context,
+                             Context &context,
                              const TextureParams& params,
-                             const wendy::Image& source);
-  /*! Creates a texture using the specified texture specification file.
-   *  @param[in] context The OpenGL context within which to create the texture.
-   *  @param[in] path The path of the texture specification file to use.
-   */
-  static Ref<Texture> read(Context& context, const String& name);
+                             const wendy::Image& data);
+  static Ref<Texture> read(Context& context,
+                           const TextureParams& params,
+                           const String& imageName);
 private:
   Texture(const ResourceInfo& info, Context& context);
   Texture(const Texture& source);
-  bool init(const TextureParams& params, const wendy::Image& source);
-  unsigned int retrieveImages(unsigned int target, CubeFace face);
+  bool init(const TextureParams& params, const wendy::Image& data);
+  void retrieveImages();
+  unsigned int retrieveTargetImages(unsigned int target, CubeFace face);
   void applyDefaults();
   Texture& operator = (const Texture& source);
-  typedef std::vector<TextureImageRef> ImageList;
+  typedef std::vector<Ref<TextureImage>> ImageList;
   Context& context;
   TextureType type;
   unsigned int textureID;
@@ -327,27 +321,7 @@ private:
 
 /*! @ingroup opengl
  */
-typedef Ref<Texture> TextureRef;
-
-///////////////////////////////////////////////////////////////////////
-
-/*! @ingroup opengl
- */
-typedef std::vector<TextureRef> TextureList;
-
-///////////////////////////////////////////////////////////////////////
-
-/*! @ingroup opengl
- */
-class TextureReader : public ResourceReader<Texture>
-{
-public:
-  TextureReader(Context& context);
-  using ResourceReader::read;
-  Ref<Texture> read(const String& name, const Path& path);
-private:
-  Context& context;
-};
+typedef std::vector<Ref<Texture>> TextureList;
 
 ///////////////////////////////////////////////////////////////////////
 

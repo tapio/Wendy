@@ -37,11 +37,11 @@
 #include <GL/glew.h>
 
 #include <internal/GLHelper.h>
+#include <internal/GLParser.h>
 
 #include <algorithm>
+
 #include <cstring>
-#include <sstream>
-#include <map>
 
 #include <pugixml.hpp>
 
@@ -57,14 +57,14 @@ namespace wendy
 namespace
 {
 
-GLenum getElementType(Attribute::Type type)
+GLenum getElementType(AttributeType type)
 {
   switch (type)
   {
-    case Attribute::FLOAT:
-    case Attribute::VEC2:
-    case Attribute::VEC3:
-    case Attribute::VEC4:
+    case ATTRIBUTE_FLOAT:
+    case ATTRIBUTE_VEC2:
+    case ATTRIBUTE_VEC3:
+    case ATTRIBUTE_VEC4:
       return GL_FLOAT;
   }
 
@@ -85,18 +85,18 @@ bool isSupportedAttributeType(GLenum type)
   return false;
 }
 
-Attribute::Type convertAttributeType(GLenum type)
+AttributeType convertAttributeType(GLenum type)
 {
   switch (type)
   {
     case GL_FLOAT:
-      return Attribute::FLOAT;
+      return ATTRIBUTE_FLOAT;
     case GL_FLOAT_VEC2:
-      return Attribute::VEC2;
+      return ATTRIBUTE_VEC2;
     case GL_FLOAT_VEC3:
-      return Attribute::VEC3;
+      return ATTRIBUTE_VEC3;
     case GL_FLOAT_VEC4:
-      return Attribute::VEC4;
+      return ATTRIBUTE_VEC4;
   }
 
   panic("Unsupported GLSL attribute type %u", type);
@@ -117,20 +117,20 @@ bool isSupportedSamplerType(GLenum type)
   return false;
 }
 
-Sampler::Type convertSamplerType(GLenum type)
+SamplerType convertSamplerType(GLenum type)
 {
   switch (type)
   {
     case GL_SAMPLER_1D:
-      return Sampler::SAMPLER_1D;
+      return SAMPLER_1D;
     case GL_SAMPLER_2D:
-      return Sampler::SAMPLER_2D;
+      return SAMPLER_2D;
     case GL_SAMPLER_3D:
-      return Sampler::SAMPLER_3D;
+      return SAMPLER_3D;
     case GL_SAMPLER_2D_RECT_ARB:
-      return Sampler::SAMPLER_RECT;
+      return SAMPLER_RECT;
     case GL_SAMPLER_CUBE:
-      return Sampler::SAMPLER_CUBE;
+      return SAMPLER_CUBE;
   }
 
   panic("Unsupported GLSL sampler type %u", type);
@@ -153,161 +153,283 @@ bool isSupportedUniformType(GLenum type)
   return false;
 }
 
-Uniform::Type convertUniformType(GLenum type)
+const char* getTypeName(ShaderType type)
+{
+  switch (type)
+  {
+    case VERTEX_SHADER:
+      return "vertex";
+    case FRAGMENT_SHADER:
+      return "fragment";
+    case GEOMETRY_SHADER:
+      return "geometry";
+    case TESS_CONTROL_SHADER:
+      return "control";
+    case TESS_EVALUATION_SHADER:
+      return "evaluation";
+  }
+
+  panic("Invalid shader type %i", type);
+}
+
+UniformType convertUniformType(GLenum type)
 {
   switch (type)
   {
     case GL_FLOAT:
-      return Uniform::FLOAT;
+      return UNIFORM_FLOAT;
     case GL_FLOAT_VEC2:
-      return Uniform::VEC2;
+      return UNIFORM_VEC2;
     case GL_FLOAT_VEC3:
-      return Uniform::VEC3;
+      return UNIFORM_VEC3;
     case GL_FLOAT_VEC4:
 
-      return Uniform::VEC4;
+      return UNIFORM_VEC4;
     case GL_FLOAT_MAT2:
-      return Uniform::MAT2;
+      return UNIFORM_MAT2;
     case GL_FLOAT_MAT3:
-      return Uniform::MAT3;
+      return UNIFORM_MAT3;
     case GL_FLOAT_MAT4:
-      return Uniform::MAT4;
+      return UNIFORM_MAT4;
   }
 
   panic("Unsupported GLSL uniform type %u", type);
 }
 
-bool readTextFile(ResourceCache& cache, String& text, const String& name)
+GLenum convertToGL(ShaderType type)
 {
-  const Path path = cache.findFile(name);
-  if (path.isEmpty())
-    return false;
-
-  std::ifstream stream(path.asString().c_str());
-  if (stream.fail())
+  switch (type)
   {
-    logError("Failed to open shader \'%s\'", name.c_str());
-    return NULL;
+    case VERTEX_SHADER:
+      return GL_VERTEX_SHADER;
+    case FRAGMENT_SHADER:
+      return GL_FRAGMENT_SHADER;
+    case GEOMETRY_SHADER:
+      return GL_GEOMETRY_SHADER;
+    case TESS_CONTROL_SHADER:
+      return GL_TESS_CONTROL_SHADER;
+    case TESS_EVALUATION_SHADER:
+      return GL_TESS_EVALUATION_SHADER;
   }
 
-  stream.seekg(0, std::ios::end);
-
-  text.resize((unsigned int) stream.tellg());
-
-  stream.seekg(0, std::ios::beg);
-  stream.read(&text[0], text.size());
-  return true;
+  panic("Invalid GLSL shader type %i", type);
 }
 
-GLuint createShader(GL::Context& context, GLenum type, const Shader& shader)
+String asName(const ShaderDefines& defines)
 {
-  String decl;
+  String name;
 
-  if (shader.version > 100)
+  for (auto d = defines.begin();  d != defines.end();  d++)
   {
-    std::ostringstream stream;
-    stream << shader.version;
-
-    decl += "#version ";
-    decl += stream.str();
-    decl += "\n";
+    name += " ";
+    name += d->first;
+    name += ":";
+    name += d->second;
   }
 
-  decl += "#line 0 0\n";
-  decl += context.getSharedProgramStateDeclaration();
-
-  String main;
-  main += "#line 0 1\n";
-  main += shader.text;
-
-  GLsizei lengths[2];
-  const GLchar* strings[2];
-
-  lengths[0] = decl.length();
-  strings[0] = (const GLchar*) decl.c_str();
-
-  lengths[1] = main.length();
-  strings[1] = (const GLchar*) main.c_str();
-
-  GLuint shaderID = glCreateShader(type);
-  glShaderSource(shaderID, 2, strings, lengths);
-  glCompileShader(shaderID);
-
-  GLint status;
-  glGetShaderiv(shaderID, GL_COMPILE_STATUS, &status);
-
-  GLint length;
-  glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &length);
-
-  String infoLog;
-
-  if (length > 0)
-  {
-    infoLog.resize(length);
-    glGetShaderInfoLog(shaderID, length, NULL, &infoLog[0]);
-  }
-
-  if (!status)
-  {
-    if (length > 0)
-    {
-      logError("Failed to compile shader \'%s\':\n%s",
-               shader.name.c_str(),
-               infoLog.c_str());
-    }
-    else
-      checkGL("Failed to compile shader \'%s\'", shader.name.c_str());
-
-    glDeleteShader(shaderID);
-    return 0;
-  }
-
-  if (length > 1)
-  {
-    logWarning("Warning(s) compiling shader \'%s\':\n%s",
-               shader.name.c_str(),
-               infoLog.c_str());
-  }
-
-  if (!checkGL("Failed to create object for shader \'%s\'",
-               shader.name.c_str()))
-  {
-    glDeleteShader(shaderID);
-    return 0;
-  }
-
-  return shaderID;
+  return name;
 }
-
-String getProgramInfoLog(GLuint programID)
-{
-  GLint length;
-  glGetProgramiv(programID, GL_INFO_LOG_LENGTH, &length);
-
-  if (length > 0)
-  {
-    String infoLog;
-    infoLog.resize(length);
-
-    glGetProgramInfoLog(programID, length, NULL, &infoLog[0]);
-
-    return infoLog;
-  }
-
-  return String();
-}
-
-const unsigned int PROGRAM_XML_VERSION = 4;
 
 } /*namespace*/
 
 ///////////////////////////////////////////////////////////////////////
 
-Shader::Shader(const char* initText, const char* initName, unsigned int initVersion):
-  text(initText),
-  name(initName),
-  version(initVersion)
+Shader::~Shader()
 {
+  if (shaderID)
+    glDeleteShader(shaderID);
+}
+
+bool Shader::isVertexShader() const
+{
+  return type == VERTEX_SHADER;
+}
+
+bool Shader::isFragmentShader() const
+{
+  return type == FRAGMENT_SHADER;
+}
+
+bool Shader::isGeometryShader() const
+{
+  return type == GEOMETRY_SHADER;
+}
+
+bool Shader::isTessControlShader() const
+{
+  return type == TESS_CONTROL_SHADER;
+}
+
+bool Shader::isTessEvaluationShader() const
+{
+  return type == TESS_EVALUATION_SHADER;
+}
+
+ShaderType Shader::getType() const
+{
+  return type;
+}
+
+Context& Shader::getContext() const
+{
+  return context;
+}
+
+Ref<Shader> Shader::create(const ResourceInfo& info,
+                          Context& context,
+                          ShaderType type,
+                          const String& text,
+                          const ShaderDefines& defines)
+{
+  Ref<Shader> shader(new Shader(info, context, type));
+  if (!shader->init(text, defines))
+    return NULL;
+
+  return shader;
+}
+
+Ref<Shader> Shader::read(Context& context,
+                        ShaderType type,
+                        const String& textName,
+                        const ShaderDefines& defines)
+{
+  ResourceCache& cache = context.getCache();
+
+  String name;
+  name += textName;
+  name += asName(defines);
+
+  if (Ref<Shader> shader = cache.find<Shader>(name))
+    return shader;
+
+  const Path path = cache.findFile(textName);
+  if (path.isEmpty())
+  {
+    logError("Failed to find shader \'%s\'", textName.c_str());
+    return NULL;
+  }
+
+  std::ifstream stream(path.asString().c_str());
+  if (stream.fail())
+  {
+    logError("Failed to open shader file \'%s\'", path.asString().c_str());
+    return NULL;
+  }
+
+  String text;
+
+  stream.seekg(0, std::ios::end);
+  text.resize((unsigned int) stream.tellg());
+
+  stream.seekg(0, std::ios::beg);
+  stream.read(&text[0], text.size());
+
+  return create(ResourceInfo(cache, name), context, type, text, defines);
+}
+
+Shader::Shader(const ResourceInfo& info,
+               Context& initContext,
+               ShaderType initType):
+  Resource(info),
+  context(initContext),
+  type(initType),
+  shaderID(0)
+{
+}
+
+bool Shader::init(const String& text, const ShaderDefines& defines)
+{
+  Preprocessor spp(getCache());
+
+  try
+  {
+    spp.parse(getName().c_str(), text.c_str());
+  }
+  catch (Exception& e)
+  {
+    return false;
+  }
+
+  String shader;
+
+  if (spp.hasVersion())
+  {
+    shader += "#version ";
+    shader += spp.getVersion();
+    shader += "\n";
+  }
+
+  for (auto d = defines.begin();  d != defines.end();  d++)
+  {
+    shader += "#define ";
+    shader += d->first;
+    shader += " ";
+    shader += d->second;
+    shader += "\n";
+  }
+
+  shader += "#line 0 0 /*shared program state*/\n";
+  shader += context.getSharedProgramStateDeclaration();
+  shader += spp.getOutput();
+
+  GLsizei lengths[1];
+  const GLchar* strings[1];
+
+  lengths[0] = shader.length();
+  strings[0] = (const GLchar*) shader.c_str();
+
+  shaderID = glCreateShader(convertToGL(type));
+  glShaderSource(shaderID, 1, strings, lengths);
+  glCompileShader(shaderID);
+
+  String infoLog;
+
+  // Retrieve shader info log
+  {
+    GLint infoLogLength;
+    glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &infoLogLength);
+
+    if (infoLogLength > 1)
+    {
+      infoLog.resize(infoLogLength);
+      glGetShaderInfoLog(shaderID, infoLogLength, NULL, &infoLog[0]);
+    }
+  }
+
+  // Check shader compilation status
+  {
+    GLint status;
+    glGetShaderiv(shaderID, GL_COMPILE_STATUS, &status);
+    if (status)
+    {
+      if (!infoLog.empty())
+      {
+        logWarning("Warning(s) compiling shader \'%s\':\n%s%s",
+                  getName().c_str(),
+                  spp.getNameList().c_str(),
+                  infoLog.c_str());
+      }
+    }
+    else
+    {
+      if (infoLog.empty())
+        checkGL("Failed to compile shader \'%s\'", getName().c_str());
+      else
+      {
+        logError("Failed to compile shader \'%s\':\n%s%s",
+                getName().c_str(),
+                spp.getNameList().c_str(),
+                infoLog.c_str());
+      }
+
+      return false;
+    }
+  }
+
+  if (!checkGL("Failed to create object for shader \'%s\'", getName().c_str()))
+    return false;
+
+  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -319,18 +441,18 @@ bool Attribute::operator == (const char* string) const
 
 bool Attribute::isScalar() const
 {
-  return type == FLOAT;
+  return type == ATTRIBUTE_FLOAT;
 }
 
 bool Attribute::isVector() const
 {
-  if (type == VEC2 || type == VEC3 || type == VEC4)
+  if (type == ATTRIBUTE_VEC2 || type == ATTRIBUTE_VEC3 || type == ATTRIBUTE_VEC4)
     return true;
 
   return false;
 }
 
-Attribute::Type Attribute::getType() const
+AttributeType Attribute::getType() const
 {
   return type;
 }
@@ -344,13 +466,13 @@ unsigned int Attribute::getElementCount() const
 {
   switch (type)
   {
-    case FLOAT:
+    case ATTRIBUTE_FLOAT:
       return 1;
-    case VEC2:
+    case ATTRIBUTE_VEC2:
       return 2;
-    case VEC3:
+    case ATTRIBUTE_VEC3:
       return 3;
-    case VEC4:
+    case ATTRIBUTE_VEC4:
       return 4;
   }
 
@@ -371,17 +493,17 @@ void Attribute::bind(size_t stride, size_t offset)
 #endif
 }
 
-const char* Attribute::getTypeName(Type type)
+const char* Attribute::getTypeName(AttributeType type)
 {
   switch (type)
   {
-    case FLOAT:
+    case ATTRIBUTE_FLOAT:
       return "float";
-    case VEC2:
+    case ATTRIBUTE_VEC2:
       return "vec2";
-    case VEC3:
+    case ATTRIBUTE_VEC3:
       return "vec3";
-    case VEC4:
+    case ATTRIBUTE_VEC4:
       return "vec4";
   }
 
@@ -409,7 +531,7 @@ bool Sampler::isShared() const
   return sharedID != INVALID_SHARED_STATE_ID;
 }
 
-Sampler::Type Sampler::getType() const
+SamplerType Sampler::getType() const
 {
   return type;
 }
@@ -424,7 +546,7 @@ int Sampler::getSharedID() const
   return sharedID;
 }
 
-const char* Sampler::getTypeName(Type type)
+const char* Sampler::getTypeName(SamplerType type)
 {
   switch (type)
   {
@@ -449,25 +571,25 @@ void Uniform::copyFrom(const void* data)
 {
   switch (type)
   {
-    case FLOAT:
+    case UNIFORM_FLOAT:
       glUniform1fv(location, 1, (const float*) data);
       break;
-    case VEC2:
+    case UNIFORM_VEC2:
       glUniform2fv(location, 1, (const float*) data);
       break;
-    case VEC3:
+    case UNIFORM_VEC3:
       glUniform3fv(location, 1, (const float*) data);
       break;
-    case VEC4:
+    case UNIFORM_VEC4:
       glUniform4fv(location, 1, (const float*) data);
       break;
-    case MAT2:
+    case UNIFORM_MAT2:
       glUniformMatrix2fv(location, 1, GL_FALSE, (const float*) data);
       break;
-    case MAT3:
+    case UNIFORM_MAT3:
       glUniformMatrix3fv(location, 1, GL_FALSE, (const float*) data);
       break;
-    case MAT4:
+    case UNIFORM_MAT4:
       glUniformMatrix4fv(location, 1, GL_FALSE, (const float*) data);
       break;
   }
@@ -489,12 +611,12 @@ bool Uniform::isShared() const
 
 bool Uniform::isScalar() const
 {
-  return type == FLOAT;
+  return type == UNIFORM_FLOAT;
 }
 
 bool Uniform::isVector() const
 {
-  if (type == VEC2 || type == VEC3 || type == VEC4)
+  if (type == UNIFORM_VEC2 || type == UNIFORM_VEC3 || type == UNIFORM_VEC4)
     return true;
 
   return false;
@@ -502,13 +624,13 @@ bool Uniform::isVector() const
 
 bool Uniform::isMatrix() const
 {
-  if (type == MAT2 || type == MAT3 || type == MAT4)
+  if (type == UNIFORM_MAT2 || type == UNIFORM_MAT3 || type == UNIFORM_MAT4)
     return true;
 
   return false;
 }
 
-Uniform::Type Uniform::getType() const
+UniformType Uniform::getType() const
 {
   return type;
 }
@@ -522,19 +644,19 @@ unsigned int Uniform::getElementCount() const
 {
   switch (type)
   {
-    case Uniform::FLOAT:
+    case UNIFORM_FLOAT:
       return 1;
-    case Uniform::VEC2:
+    case UNIFORM_VEC2:
       return 2;
-    case Uniform::VEC3:
+    case UNIFORM_VEC3:
       return 3;
-    case Uniform::VEC4:
+    case UNIFORM_VEC4:
       return 4;
-    case Uniform::MAT2:
+    case UNIFORM_MAT2:
       return 2 * 2;
-    case Uniform::MAT3:
+    case UNIFORM_MAT3:
       return 3 * 3;
-    case Uniform::MAT4:
+    case UNIFORM_MAT4:
       return 4 * 4;
   }
 
@@ -546,23 +668,23 @@ int Uniform::getSharedID() const
   return sharedID;
 }
 
-const char* Uniform::getTypeName(Type type)
+const char* Uniform::getTypeName(UniformType type)
 {
   switch (type)
   {
-    case FLOAT:
+    case UNIFORM_FLOAT:
       return "float";
-    case VEC2:
+    case UNIFORM_VEC2:
       return "vec2";
-    case VEC3:
+    case UNIFORM_VEC3:
       return "vec3";
-    case VEC4:
+    case UNIFORM_VEC4:
       return "vec4";
-    case MAT2:
+    case UNIFORM_MAT2:
       return "mat2";
-    case MAT3:
+    case UNIFORM_MAT3:
       return "mat3";
-    case MAT4:
+    case UNIFORM_MAT4:
       return "mat4";
   }
 
@@ -573,21 +695,6 @@ const char* Uniform::getTypeName(Type type)
 
 Program::~Program()
 {
-  if (vertexShaderID)
-    glDeleteShader(vertexShaderID);
-
-  if (fragmentShaderID)
-    glDeleteShader(fragmentShaderID);
-
-  if (geometryShaderID)
-    glDeleteShader(geometryShaderID);
-
-  if (tessCtrlShaderID)
-    glDeleteShader(tessCtrlShaderID);
-
-  if (tessEvalShaderID)
-    glDeleteShader(tessEvalShaderID);
-
   if (programID)
     glDeleteProgram(programID);
 
@@ -597,25 +704,25 @@ Program::~Program()
 
 Attribute* Program::findAttribute(const char* name)
 {
-  AttributeList::iterator i = std::find(attributes.begin(), attributes.end(), name);
-  if (i == attributes.end())
+  auto a = std::find(attributes.begin(), attributes.end(), name);
+  if (a == attributes.end())
     return NULL;
 
-  return &(*i);
+  return &(*a);
 }
 
 const Attribute* Program::findAttribute(const char* name) const
 {
-  AttributeList::const_iterator i = std::find(attributes.begin(), attributes.end(), name);
-  if (i == attributes.end())
+  auto a = std::find(attributes.begin(), attributes.end(), name);
+  if (a == attributes.end())
     return NULL;
 
-  return &(*i);
+  return &(*a);
 }
 
 Sampler* Program::findSampler(const char* name)
 {
-  SamplerList::iterator s = std::find(samplers.begin(), samplers.end(), name);
+  auto s = std::find(samplers.begin(), samplers.end(), name);
   if (s == samplers.end())
     return NULL;
 
@@ -624,7 +731,7 @@ Sampler* Program::findSampler(const char* name)
 
 const Sampler* Program::findSampler(const char* name) const
 {
-  SamplerList::const_iterator s = std::find(samplers.begin(), samplers.end(), name);
+  auto s = std::find(samplers.begin(), samplers.end(), name);
   if (s == samplers.end())
     return NULL;
 
@@ -633,35 +740,30 @@ const Sampler* Program::findSampler(const char* name) const
 
 Uniform* Program::findUniform(const char* name)
 {
-  UniformList::iterator i = std::find(uniforms.begin(), uniforms.end(), name);
-  if (i == uniforms.end())
+  auto u = std::find(uniforms.begin(), uniforms.end(), name);
+  if (u == uniforms.end())
     return NULL;
 
-  return &(*i);
+  return &(*u);
 }
 
 const Uniform* Program::findUniform(const char* name) const
 {
-  UniformList::const_iterator i = std::find(uniforms.begin(), uniforms.end(), name);
-  if (i == uniforms.end())
+  auto u = std::find(uniforms.begin(), uniforms.end(), name);
+  if (u == uniforms.end())
     return NULL;
 
-  return &(*i);
-}
-
-bool Program::isCurrent() const
-{
-  return context.getCurrentProgram() == this;
+  return &(*u);
 }
 
 bool Program::hasGeometryShader() const
 {
-  return geometryShaderID != 0;
+  return geometryShader != NULL;
 }
 
 bool Program::hasTessellationShaders() const
 {
-  return tessCtrlShaderID && tessEvalShaderID;
+  return tessCtrlShader != NULL && tessEvalShader != NULL;
 }
 
 unsigned int Program::getAttributeCount() const
@@ -716,17 +818,11 @@ Context& Program::getContext() const
 
 Ref<Program> Program::create(const ResourceInfo& info,
                              Context& context,
-                             const Shader& vertexShader,
-                             const Shader& fragmentShader)
+                             Shader& vertexShader,
+                             Shader& fragmentShader)
 {
   Ref<Program> program(new Program(info, context));
-
-  if (!program->attachShader(vertexShader, GL_VERTEX_SHADER))
-    return NULL;
-  if (!program->attachShader(fragmentShader, GL_FRAGMENT_SHADER))
-    return NULL;
-
-  if (!program->link())
+  if (!program->init(&vertexShader, &fragmentShader))
     return NULL;
 
   return program;
@@ -734,20 +830,12 @@ Ref<Program> Program::create(const ResourceInfo& info,
 
 Ref<Program> Program::create(const ResourceInfo& info,
                              Context& context,
-                             const Shader& vertexShader,
-                             const Shader& fragmentShader,
-                             const Shader& geometryShader)
+                             Shader& vertexShader,
+                             Shader& fragmentShader,
+                             Shader& geometryShader)
 {
   Ref<Program> program(new Program(info, context));
-
-  if (!program->attachShader(vertexShader, GL_VERTEX_SHADER))
-    return NULL;
-  if (!program->attachShader(fragmentShader, GL_FRAGMENT_SHADER))
-    return NULL;
-  if (!program->attachShader(geometryShader, GL_GEOMETRY_SHADER))
-    return NULL;
-
-  if (!program->link())
+  if (!program->init(&vertexShader, &fragmentShader, &geometryShader))
     return NULL;
 
   return program;
@@ -755,23 +843,13 @@ Ref<Program> Program::create(const ResourceInfo& info,
 
 Ref<Program> Program::create(const ResourceInfo& info,
                              Context& context,
-                             const Shader& vertexShader,
-                             const Shader& fragmentShader,
-                             const Shader& tessCtrlShader,
-                             const Shader& tessEvalShader)
+                             Shader& vertexShader,
+                             Shader& fragmentShader,
+                             Shader& tessCtrlShader,
+                             Shader& tessEvalShader)
 {
   Ref<Program> program(new Program(info, context));
-
-  if (!program->attachShader(vertexShader, GL_VERTEX_SHADER))
-    return NULL;
-  if (!program->attachShader(fragmentShader, GL_FRAGMENT_SHADER))
-    return NULL;
-  if (!program->attachShader(tessCtrlShader, GL_TESS_CONTROL_SHADER))
-    return NULL;
-  if (!program->attachShader(tessEvalShader, GL_TESS_EVALUATION_SHADER))
-    return NULL;
-
-  if (!program->link())
+  if (!program->init(&vertexShader, &fragmentShader, NULL, &tessCtrlShader, &tessEvalShader))
     return NULL;
 
   return program;
@@ -779,45 +857,102 @@ Ref<Program> Program::create(const ResourceInfo& info,
 
 Ref<Program> Program::create(const ResourceInfo& info,
                              Context& context,
-                             const Shader& vertexShader,
-                             const Shader& fragmentShader,
-                             const Shader& geometryShader,
-                             const Shader& tessCtrlShader,
-                             const Shader& tessEvalShader)
+                             Shader& vertexShader,
+                             Shader& fragmentShader,
+                             Shader& geometryShader,
+                             Shader& tessCtrlShader,
+                             Shader& tessEvalShader)
 {
   Ref<Program> program(new Program(info, context));
-
-  if (!program->attachShader(vertexShader, GL_VERTEX_SHADER))
-    return NULL;
-  if (!program->attachShader(fragmentShader, GL_FRAGMENT_SHADER))
-    return NULL;
-  if (!program->attachShader(geometryShader, GL_GEOMETRY_SHADER))
-    return NULL;
-  if (!program->attachShader(tessCtrlShader, GL_TESS_CONTROL_SHADER))
-    return NULL;
-  if (!program->attachShader(tessEvalShader, GL_TESS_EVALUATION_SHADER))
-    return NULL;
-
-  if (!program->link())
+  if (!program->init(&vertexShader, &fragmentShader, &geometryShader, &tessCtrlShader, &tessEvalShader))
     return NULL;
 
   return program;
 }
 
-Ref<Program> Program::read(Context& context, const String& name)
+Ref<Program> Program::read(Context& context,
+                           const String& vertexShaderName,
+                           const String& fragmentShaderName,
+                           const String& geometryShaderName,
+                           const String& tessCtrlShaderName,
+                           const String& tessEvalShaderName,
+                           const ShaderDefines& defines)
 {
-  ProgramReader reader(context);
-  return reader.read(name);
+  ResourceCache& cache = context.getCache();
+
+  String name;
+  name += "vs:";
+  name += vertexShaderName;
+  name += " fs:";
+  name += fragmentShaderName;
+  if (!geometryShaderName.empty())
+    name += " gs:" + geometryShaderName;
+  if (!tessCtrlShaderName.empty())
+    name += " tc:" + tessCtrlShaderName;
+  if (!tessEvalShaderName.empty())
+    name += " te:" + tessEvalShaderName;
+  name += asName(defines);
+
+  if (Ref<Program> program = cache.find<Program>(name))
+    return program;
+
+  Ref<Shader> vertexShader = Shader::read(context,
+                                          VERTEX_SHADER,
+                                          vertexShaderName,
+                                          defines);
+  if (!vertexShader)
+    return NULL;
+
+  Ref<Shader> fragmentShader = Shader::read(context,
+                                            FRAGMENT_SHADER,
+                                            fragmentShaderName,
+                                            defines);
+  if (!fragmentShader)
+    return NULL;
+
+  Ref<Shader> geometryShader = NULL;
+  if (!geometryShaderName.empty())
+  {
+    geometryShader = Shader::read(context,
+                                  GEOMETRY_SHADER,
+                                  geometryShaderName,
+                                  defines);
+    if (!geometryShader)
+      return NULL;
+  }
+
+  Ref<Shader> tessCtrlShader = NULL;
+  Ref<Shader> tessEvalShader = NULL;
+  if (!tessCtrlShaderName.empty() && !tessEvalShaderName.empty())
+  {
+    tessCtrlShader = Shader::read(context,
+                                  TESS_CONTROL_SHADER,
+                                  tessCtrlShaderName,
+                                  defines);
+    if (!tessCtrlShader)
+      return NULL;
+    tessEvalShader = Shader::read(context,
+                                  TESS_EVALUATION_SHADER,
+                                  tessEvalShaderName,
+                                  defines);
+    if (!tessEvalShader)
+      return NULL;
+
+    if (geometryShader)
+      return create(ResourceInfo(cache, name), context, *vertexShader, *fragmentShader, *geometryShader, *tessCtrlShader, *tessEvalShader);
+    else
+      return create(ResourceInfo(cache, name), context, *vertexShader, *fragmentShader, *tessCtrlShader, *tessEvalShader);
+  }
+
+  if (geometryShader)
+    return create(ResourceInfo(cache, name), context, *vertexShader, *fragmentShader, *geometryShader);
+  else
+    return create(ResourceInfo(cache, name), context, *vertexShader, *fragmentShader);
 }
 
 Program::Program(const ResourceInfo& info, Context& initContext):
   Resource(info),
   context(initContext),
-  vertexShaderID(0),
-  fragmentShaderID(0),
-  geometryShaderID(0),
-  tessCtrlShaderID(0),
-  tessEvalShaderID(0),
   programID(0)
 {
   if (Stats* stats = context.getStats())
@@ -831,38 +966,36 @@ Program::Program(const Program& source):
   panic("GLSL programs may not be copied");
 }
 
-bool Program::attachShader(const Shader& shader, unsigned int type)
+bool Program::init(Shader* initVertexShader,
+                   Shader* initFragmentShader,
+                   Shader* initGeometryShader,
+                   Shader* initTessCtrlShader,
+                   Shader* initTessEvalShader)
 {
-  GLuint shaderID = createShader(context, type, shader);
-  if (!shaderID)
-    return false;
+  vertexShader = initVertexShader;
+  fragmentShader = initFragmentShader;
+  geometryShader = initGeometryShader;
+  tessCtrlShader = initTessCtrlShader;
+  tessEvalShader = initTessEvalShader;
 
-  switch (type)
+  if (!vertexShader->isVertexShader())
   {
-    case GL_VERTEX_SHADER:
-      vertexShaderID = shaderID;
-      break;
-    case GL_TESS_CONTROL_SHADER:
-      tessCtrlShaderID = shaderID;
-      break;
-    case GL_TESS_EVALUATION_SHADER:
-      tessEvalShaderID = shaderID;
-      break;
-    case GL_GEOMETRY_SHADER:
-      geometryShaderID = shaderID;
-      break;
-    case GL_FRAGMENT_SHADER:
-      fragmentShaderID = shaderID;
-      break;
-    default:
-      panic("Invalid shader type");
+    logError("Shader \'%s\' for program \'%s\' is not a vertex shader",
+             vertexShader->getName().c_str(),
+             getName().c_str());
+    return false;
   }
 
-  return true;
-}
+  if (!fragmentShader->isFragmentShader())
+  {
+    logError("Shader \'%s\' for program \'%s\' is not a fragment shader",
+             fragmentShader->getName().c_str(),
+             getName().c_str());
+    return false;
+  }
 
-bool Program::link()
-{
+  // TODO: Add checks for other shader types
+
   programID = glCreateProgram();
   if (!programID)
   {
@@ -871,10 +1004,10 @@ bool Program::link()
     return false;
   }
 
-  glAttachShader(programID, vertexShaderID);
-  glAttachShader(programID, fragmentShaderID);
+  glAttachShader(programID, vertexShader->shaderID);
+  glAttachShader(programID, fragmentShader->shaderID);
 
-  if (geometryShaderID)
+  if (geometryShader)
   {
     if (!GLEW_ARB_geometry_shader4 && context.getVersion() < Version(3,2))
     {
@@ -883,25 +1016,25 @@ bool Program::link()
       return false;
     }
 
-    glAttachShader(programID, geometryShaderID);
+    glAttachShader(programID, geometryShader->shaderID);
   }
 
-  if (tessCtrlShaderID && tessEvalShaderID)
+  if (tessCtrlShader && tessEvalShader)
   {
     if (!GLEW_ARB_tessellation_shader && context.getVersion() < Version(4,0))
     {
-      logError("Context does not support :essellation shaders; cannot link program \'%s\'",
+      logError("Context does not support tessellation shaders; cannot link program \'%s\'",
                getName().c_str());
       return false;
     }
 
-    glAttachShader(programID, tessCtrlShaderID);
-    glAttachShader(programID, tessEvalShaderID);
+    glAttachShader(programID, tessCtrlShader->shaderID);
+    glAttachShader(programID, tessEvalShader->shaderID);
   }
 
   glLinkProgram(programID);
 
-  String infoLog = getProgramInfoLog(programID);
+  const String infoLog = getInfoLog();
 
   int status;
   glGetProgramiv(programID, GL_LINK_STATUS, &status);
@@ -1054,17 +1187,13 @@ void Program::bind()
 {
   glUseProgram(programID);
 
-  typedef AttributeList::const_iterator It;
-
-  for (It a = attributes.begin();  a != attributes.end();  a++)
+  for (auto a = attributes.begin();  a != attributes.end();  a++)
     glEnableVertexAttribArray(a->location);
 }
 
 void Program::unbind()
 {
-  typedef AttributeList::const_iterator It;
-
-  for (It a = attributes.begin();  a != attributes.end();  a++)
+  for (auto a = attributes.begin();  a != attributes.end();  a++)
     glDisableVertexAttribArray(a->location);
 }
 
@@ -1081,7 +1210,7 @@ bool Program::isValid() const
   glGetProgramiv(programID, GL_VALIDATE_STATUS, &status);
   if (!status)
   {
-    String infoLog = getProgramInfoLog(programID);
+    const String infoLog = getInfoLog();
     logError("Failed to validate program \'%s\':\n%s",
              getName().c_str(),
              infoLog.c_str());
@@ -1092,42 +1221,58 @@ bool Program::isValid() const
   return true;
 }
 
+String Program::getInfoLog() const
+{
+  String infoLog;
+
+  GLint infoLogLength;
+  glGetProgramiv(programID, GL_INFO_LOG_LENGTH, &infoLogLength);
+
+  if (infoLogLength > 1)
+  {
+    infoLog.resize(infoLogLength);
+    glGetProgramInfoLog(programID, infoLogLength, NULL, &infoLog[0]);
+  }
+
+  return infoLog;
+}
+
 ///////////////////////////////////////////////////////////////////////
 
-void ProgramInterface::addSampler(const char* name, Sampler::Type type)
+void ProgramInterface::addSampler(const char* name, SamplerType type)
 {
-  samplers.push_back(SamplerList::value_type(name, type));
+  samplers.push_back(std::make_pair(name, type));
 }
 
-void ProgramInterface::addUniform(const char* name, Uniform::Type type)
+void ProgramInterface::addUniform(const char* name, UniformType type)
 {
-  uniforms.push_back(UniformList::value_type(name, type));
+  uniforms.push_back(std::make_pair(name, type));
 }
 
-void ProgramInterface::addAttribute(const char* name, Attribute::Type type)
+void ProgramInterface::addAttribute(const char* name, AttributeType type)
 {
-  attributes.push_back(AttributeList::value_type(name, type));
+  attributes.push_back(std::make_pair(name, type));
 }
 
 void ProgramInterface::addAttributes(const VertexFormat& format)
 {
   for (size_t i = 0;  i < format.getComponentCount();  i++)
   {
-    Attribute::Type type;
+    AttributeType type;
 
     switch (format[i].getElementCount())
     {
       case 1:
-        type = Attribute::FLOAT;
+        type = ATTRIBUTE_FLOAT;
         break;
       case 2:
-        type = Attribute::VEC2;
+        type = ATTRIBUTE_VEC2;
         break;
       case 3:
-        type = Attribute::VEC3;
+        type = ATTRIBUTE_VEC3;
         break;
       case 4:
-        type = Attribute::VEC4;
+        type = ATTRIBUTE_VEC4;
         break;
       default:
         panic("Invalid vertex format component element count");
@@ -1139,62 +1284,58 @@ void ProgramInterface::addAttributes(const VertexFormat& format)
 
 bool ProgramInterface::matches(const Program& program, bool verbose) const
 {
-  for (size_t i = 0;  i < samplers.size();  i++)
+  for (auto s = samplers.begin();  s != samplers.end();  s++)
   {
-    const SamplerList::value_type& entry = samplers[i];
-
-    const Sampler* sampler = program.findSampler(entry.first.c_str());
+    const Sampler* sampler = program.findSampler(s->first.c_str());
     if (!sampler)
     {
       if (verbose)
       {
         logError("Sampler \'%s\' missing in program \'%s\'",
-                 entry.first.c_str(),
+                 s->first.c_str(),
                  program.getName().c_str());
       }
 
       return false;
     }
 
-    if (sampler->getType() != entry.second)
+    if (sampler->getType() != s->second)
     {
       if (verbose)
       {
         logError("Sampler \'%s\' in program \'%s\' has incorrect type; should be \'%s\'",
-                 entry.first.c_str(),
+                 s->first.c_str(),
                  program.getName().c_str(),
-                 Sampler::getTypeName(entry.second));
+                 Sampler::getTypeName(s->second));
       }
 
       return false;
     }
   }
 
-  for (size_t i = 0;  i < uniforms.size();  i++)
+  for (auto u = uniforms.begin();  u != uniforms.end();  u++)
   {
-    const UniformList::value_type& entry = uniforms[i];
-
-    const Uniform* uniform = program.findUniform(entry.first.c_str());
+    const Uniform* uniform = program.findUniform(u->first.c_str());
     if (!uniform)
     {
       if (verbose)
       {
         logError("Uniform \'%s\' missing in program \'%s\'",
-                 entry.first.c_str(),
+                 u->first.c_str(),
                  program.getName().c_str());
       }
 
       return false;
     }
 
-    if (uniform->getType() != entry.second)
+    if (uniform->getType() != u->second)
     {
       if (verbose)
       {
         logError("Uniform \'%s\' in program \'%s\' has incorrect type; should be \'%s\'",
-                 entry.first.c_str(),
+                 u->first.c_str(),
                  program.getName().c_str(),
-                 Uniform::getTypeName(entry.second));
+                 Uniform::getTypeName(u->second));
       }
 
       return false;
@@ -1249,175 +1390,25 @@ bool ProgramInterface::matches(const VertexFormat& format, bool verbose) const
   if (format.getComponentCount() != attributes.size())
     return false;
 
-  for (size_t i = 0;  i < attributes.size();  i++)
+  for (auto a = attributes.begin();  a != attributes.end();  a++)
   {
-    const AttributeList::value_type& entry = attributes[i];
-
-    const VertexComponent* component = format.findComponent(entry.first.c_str());
+    const VertexComponent* component = format.findComponent(a->first.c_str());
     if (!component)
       return false;
 
     if (component->getType() != VertexComponent::FLOAT32)
       return false;
 
-    if ((component->getElementCount() == 1 && entry.second != Attribute::FLOAT) ||
-        (component->getElementCount() == 2 && entry.second != Attribute::VEC2) ||
-        (component->getElementCount() == 3 && entry.second != Attribute::VEC3) ||
-        (component->getElementCount() == 4 && entry.second != Attribute::VEC4))
+    if ((component->getElementCount() == 1 && a->second != ATTRIBUTE_FLOAT) ||
+        (component->getElementCount() == 2 && a->second != ATTRIBUTE_VEC2) ||
+        (component->getElementCount() == 3 && a->second != ATTRIBUTE_VEC3) ||
+        (component->getElementCount() == 4 && a->second != ATTRIBUTE_VEC4))
     {
       return false;
     }
   }
 
   return true;
-}
-
-///////////////////////////////////////////////////////////////////////
-
-ProgramReader::ProgramReader(Context& initContext):
-  ResourceReader(initContext.getCache()),
-  context(initContext)
-{
-}
-
-Ref<Program> ProgramReader::read(const String& name, const Path& path)
-{
-  std::ifstream stream(path.asString().c_str());
-  if (stream.fail())
-  {
-    logError("Failed to open GLSL program \'%s\'", name.c_str());
-    return NULL;
-  }
-
-  pugi::xml_document document;
-
-  const pugi::xml_parse_result result = document.load(stream);
-  if (!result)
-  {
-    logError("Failed to load GLSL program \'%s\': %s",
-             name.c_str(),
-             result.description());
-    return NULL;
-  }
-
-  pugi::xml_node root = document.child("program");
-  if (!root || root.attribute("version").as_uint() != PROGRAM_XML_VERSION)
-  {
-    logError("GLSL program file format mismatch in \'%s\'", name.c_str());
-    return NULL;
-  }
-
-  std::map<String, Shader> shaders;
-
-  const char* names[] =
-  {
-    "vertex",
-    "fragment",
-    "geometry",
-    "control",
-    "evaluation",
-  };
-
-  for (size_t i = 0;  i < sizeof(names) / sizeof(names[0]);  i++)
-  {
-    if (pugi::xml_node s = root.child(names[i]))
-    {
-      const String shaderName(s.attribute("path").value());
-      if (shaderName.empty())
-      {
-        logError("Empty name for %s shader in GLSL program \'%s\'",
-                names[i],
-                name.c_str());
-        return NULL;
-      }
-
-      String text;
-      if (!readTextFile(cache, text, shaderName))
-      {
-        logError("Failed to load %s shader \'%s\' for GLSL program \'%s\'",
-                names[i],
-                shaderName.c_str(),
-                name.c_str());
-        return NULL;
-      }
-
-      const unsigned int version = max(s.attribute("glsl-version").as_int(), 100);
-
-      shaders[names[i]] = Shader(text.c_str(), shaderName.c_str(), version);
-    }
-  }
-
-  if (!shaders.count("vertex"))
-  {
-    logError("Vertex shader missing in GLSL program \'%s\'", name.c_str());
-    return NULL;
-  }
-
-  if (!shaders.count("fragment"))
-  {
-    logError("Fragment shader missing in GLSL program \'%s\'", name.c_str());
-    return NULL;
-  }
-
-  bool tessellation = false;
-
-  if (shaders.count("control"))
-  {
-    if (shaders.count("evaluation"))
-      tessellation = true;
-    else
-    {
-      logError("Both tessellation control and evaluation shader (or neither) "
-               "are required in GLSL program \'%s\'",
-               name.c_str());
-      return NULL;
-    }
-  }
-
-  Ref<Program> program;
-
-  if (shaders.count("geometry"))
-  {
-    if (tessellation)
-    {
-      program = Program::create(ResourceInfo(cache, name, path),
-                                context,
-                                shaders["vertex"],
-                                shaders["fragment"],
-                                shaders["geometry"],
-                                shaders["control"],
-                                shaders["evaluation"]);
-    }
-    else
-    {
-      program = Program::create(ResourceInfo(cache, name, path),
-                                context,
-                                shaders["vertex"],
-                                shaders["fragment"],
-                                shaders["geometry"]);
-    }
-  }
-  else
-  {
-    if (tessellation)
-    {
-      program = Program::create(ResourceInfo(cache, name, path),
-                                context,
-                                shaders["vertex"],
-                                shaders["fragment"],
-                                shaders["control"],
-                                shaders["evaluation"]);
-    }
-    else
-    {
-      program = Program::create(ResourceInfo(cache, name, path),
-                                context,
-                                shaders["vertex"],
-                                shaders["fragment"]);
-    }
-  }
-
-  return program;
 }
 
 ///////////////////////////////////////////////////////////////////////

@@ -1,3 +1,4 @@
+#version 150
 
 in vec3 wyPosition;
 in vec2 wyTexCoord;

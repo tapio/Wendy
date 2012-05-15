@@ -37,6 +37,8 @@
 
 #include <pugixml.hpp>
 
+#include <glm/gtx/bit.hpp>
+
 #include <png.h>
 
 ///////////////////////////////////////////////////////////////////////
@@ -49,17 +51,27 @@ namespace wendy
 namespace
 {
 
-bool getEncodeConversionFormatPNG(int& result, const PixelFormat& format)
+bool convertToBitDepth(int& result, const PixelFormat& format)
 {
-  if (format.getType() != PixelFormat::UINT8)
-    return false;
+  switch (format.getType())
+  {
+    case PixelFormat::UINT8:
+    case PixelFormat::UINT16:
+      result = format.getSize() * 8;
+      return false;
+    default:
+      return false;
+  }
+}
 
+bool convertToColorType(int& result, const PixelFormat& format)
+{
   switch (format.getSemantic())
   {
-    case PixelFormat::R:
+    case PixelFormat::L:
       result = PNG_COLOR_TYPE_GRAY;
       return true;
-    case PixelFormat::RG:
+    case PixelFormat::LA:
       result = PNG_COLOR_TYPE_GRAY_ALPHA;
       return true;
     case PixelFormat::RGB:
@@ -73,25 +85,39 @@ bool getEncodeConversionFormatPNG(int& result, const PixelFormat& format)
   }
 }
 
-bool getDecodeConversionFormatPNG(PixelFormat& result, int format)
+PixelFormat::Semantic convertToSemantic(int colorType)
 {
-  switch (format)
+  switch (colorType)
   {
     case PNG_COLOR_TYPE_GRAY:
-      result = PixelFormat::R8;
-      return true;
+      return PixelFormat::L;
     case PNG_COLOR_TYPE_GRAY_ALPHA:
-      result = PixelFormat::RG8;
-      return true;
+      return PixelFormat::LA;
     case PNG_COLOR_TYPE_RGB:
-      result = PixelFormat::RGB8;
-      return true;
+      return PixelFormat::RGB;
     case PNG_COLOR_TYPE_RGB_ALPHA:
-      result = PixelFormat::RGBA8;
-      return true;
+      return PixelFormat::RGBA;
   }
 
-  return false;
+  return PixelFormat::NONE;
+}
+
+PixelFormat::Type convertToType(int bitDepth)
+{
+  switch (bitDepth)
+  {
+    case 8:
+      return PixelFormat::UINT8;
+    case 16:
+      return PixelFormat::UINT16;
+  }
+
+  return PixelFormat::DUMMY;
+}
+
+PixelFormat convertToPixelFormat(int colorType, int bitDepth)
+{
+  return PixelFormat(convertToSemantic(colorType), convertToType(bitDepth));
 }
 
 void writeErrorPNG(png_structp context, png_const_charp error)
@@ -128,77 +154,6 @@ const unsigned int IMAGE_CUBE_XML_VERSION = 2;
 
 ///////////////////////////////////////////////////////////////////////
 
-Image::Image(const ResourceInfo& info,
-             const PixelFormat& initFormat,
-             unsigned int initWidth,
-             unsigned int initHeight,
-             unsigned int initDepth,
-             const void* initData,
-             unsigned int pitch):
-  Resource(info),
-  width(initWidth),
-  height(initHeight),
-  depth(initDepth),
-  format(initFormat)
-{
-  assert(format.getSemantic() != PixelFormat::NONE);
-  assert(format.getType() != PixelFormat::DUMMY);
-  assert(width > 0);
-  assert(height > 0);
-  assert(depth > 0);
-
-  if ((height > 1) && (width == 1))
-  {
-    width = height;
-    height = 1;
-  }
-
-  if ((depth > 1) && (height == 1))
-  {
-    height = depth;
-    depth = 1;
-  }
-
-  if (initData)
-  {
-    if (pitch)
-    {
-      unsigned int size = format.getSize();
-      data.resize(width * height * depth * size);
-
-      uint8* target = data;
-      const uint8* source = (const uint8*) initData;
-
-      for (unsigned int z = 0;  z < depth;  z++)
-      {
-        for (unsigned int y = 0;  y < height;  y++)
-        {
-          std::memcpy(target, source, width * size);
-          source += pitch;
-          target += width * size;
-        }
-      }
-    }
-    else
-    {
-      data.copyFrom((const uint8*) initData,
-                    width * height * depth * format.getSize());
-    }
-  }
-  else
-  {
-    const unsigned int size = width * height * depth * format.getSize();
-    data.resize(size);
-    std::memset(data, 0, size);
-  }
-}
-
-Image::Image(const Image& source):
-  Resource(source)
-{
-  operator = (source);
-}
-
 bool Image::transformTo(const PixelFormat& targetFormat, PixelTransform& transform)
 {
   if (format == targetFormat)
@@ -207,10 +162,9 @@ bool Image::transformTo(const PixelFormat& targetFormat, PixelTransform& transfo
   if (!transform.supports(targetFormat, format))
     return false;
 
-  Block target(width * height * depth * targetFormat.getSize());
-  transform.convert(target, targetFormat, data, format, width * height * depth);
-  data.attach(target.detach(), target.getSize());
-
+  Block temp(width * height * depth * targetFormat.getSize());
+  transform.convert(temp, targetFormat, data, format, width * height * depth);
+  data.attach(temp.detach(), temp.getSize());
   format = targetFormat;
   return true;
 }
@@ -223,109 +177,76 @@ bool Image::crop(const Recti& area)
     return false;
   }
 
-  if (area.position.x < 0 || area.position.y < 0 ||
-      area.size.x < 0 || area.size.y < 0 ||
-      area.position.x >= (int) width ||
-      area.position.y >= (int) height)
+  if (!Recti(0, 0, width, height).contains(area))
   {
-    logError("Invalid image area dimensions");
+    logError("Cropping area must be entirely within image");
     return false;
   }
 
-  Recti targetArea = area;
+  const size_t pixelSize = format.getSize();
+  Block temp(area.size.x * area.size.y * pixelSize);
 
-  if (area.position.x + area.size.x > (int) width)
-    targetArea.size.x = (int) width - area.position.x;
-  if (area.position.y + area.size.y > (int) height)
-    targetArea.size.y = (int) height - area.position.y;
-
-  const unsigned int pixelSize = format.getSize();
-
-  Block scratch(targetArea.size.x * targetArea.size.y * pixelSize);
-
-  for (int y = 0;  y < targetArea.size.y;  y++)
+  for (size_t y = 0;  y < area.size.y;  y++)
   {
-    scratch.copyFrom(data + ((y + targetArea.position.y) * width + targetArea.position.x) * pixelSize,
-                     targetArea.size.x * pixelSize,
-                     y * targetArea.size.x * pixelSize);
+    std::memcpy(temp + y * area.size.x * pixelSize,
+                data + ((y + area.position.y) * width + area.position.x) * pixelSize,
+                area.size.x * pixelSize);
   }
 
-  width = targetArea.size.x;
-  height = targetArea.size.y;
+  width = area.size.x;
+  height = area.size.y;
 
-  data.attach(scratch.detach(), scratch.getSize());
+  data.attach(temp.detach(), temp.getSize());
   return true;
 }
 
 void Image::flipHorizontal()
 {
-  unsigned int pixelSize = format.getSize();
+  const size_t rowSize = width * format.getSize();
+  Block temp(data.getSize());
 
-  Block scratch(data.getSize());
-
-  for (unsigned int z = 0;  z < depth;  z++)
+  for (size_t z = 0;  z < depth;  z++)
   {
-    size_t offset = z * width * height * pixelSize;
+    const size_t sliceOffset = z * height * rowSize;
 
-    for (unsigned int y = 0;  y < height;  y++)
+    for (size_t y = 0;  y < height;  y++)
     {
-      scratch.copyFrom(data + offset + y * width * pixelSize,
-                       width * pixelSize,
-                       offset + (height - y - 1) * width * pixelSize);
+      std::memcpy(temp + sliceOffset + rowSize * (height - y - 1),
+                  data + sliceOffset + rowSize * y,
+                  rowSize);
     }
   }
 
-  data.attach(scratch.detach(), scratch.getSize());
+  data.attach(temp.detach(), temp.getSize());
 }
 
 void Image::flipVertical()
 {
-  unsigned int pixelSize = format.getSize();
+  const size_t pixelSize = format.getSize();
+  Block temp(data.getSize());
 
-  Block scratch(data.getSize());
-
-  for (unsigned int z = 0;  z < depth;  z++)
+  for (size_t z = 0;  z < depth;  z++)
   {
-    for (unsigned int y = 0;  y < height;  y++)
+    for (size_t y = 0;  y < height;  y++)
     {
       const uint8* source = data + (z * height + y) * width * pixelSize;
-      uint8* target = scratch + ((z * height + y + 1) * width - 1) * pixelSize;
+      uint8* target = temp + ((z * height + y + 1) * width - 1) * pixelSize;
 
       while (source < target)
       {
-        for (unsigned int i = 0;  i < pixelSize;  i++)
-          target[i] = source[i];
-
+        std::memcpy(target, source, pixelSize);
         source += pixelSize;
         target -= pixelSize;
       }
     }
   }
 
-  data.attach(scratch.detach(), scratch.getSize());
-}
-
-Image& Image::operator = (const Image& source)
-{
-  width = source.width;
-  height = source.height;
-  depth = source.depth;
-  format = source.format;
-  data = source.data;
-
-  return *this;
+  data.attach(temp.detach(), temp.getSize());
 }
 
 bool Image::isPOT() const
 {
-  if (width & (width - 1))
-    return false;
-  if (height & (height - 1))
-    return false;
-  if (depth & (depth - 1))
-    return false;
-
-  return true;
+  return isPowerOfTwo(width) && isPowerOfTwo(height) && isPowerOfTwo(depth);
 }
 
 bool Image::isSquare() const
@@ -392,30 +313,44 @@ unsigned int Image::getDimensionCount() const
 
 Ref<Image> Image::getArea(const Recti& area) const
 {
-  if (area.position.x >= (int) width || area.position.y >= (int) height)
-    return NULL;
-
-  Recti targetArea = area;
-
-  if (area.position.x + area.size.x > (int) width)
-    targetArea.size.x = (int) width - area.position.x;
-  if (area.position.y + area.size.y > (int) height)
-    targetArea.size.y = (int) height - area.position.y;
-
-  const unsigned int pixelSize = format.getSize();
-
-  ImageRef result = new Image(ResourceInfo(cache),
-                              format,
-                              targetArea.size.x, targetArea.size.y);
-
-  for (int y = 0;  y < targetArea.size.y;  y++)
+  if (getDimensionCount() > 2)
   {
-    const uint8* source = data + ((y + targetArea.position.y) * width + targetArea.position.x) * pixelSize;
-    uint8* target = result->data + y * result->width * pixelSize;
-    memcpy(target, source, result->width * pixelSize);
+    logError("Cannot retrieve area of 3D image");
+    return NULL;
+  }
+
+  if (!Recti(0, 0, width, height).contains(area))
+  {
+    logError("Cannot retrieve area outside of image");
+    return NULL;
+  }
+
+  const size_t rowSize = area.size.x * format.getSize();
+  Ref<Image> result = create(cache, format, area.size.x, area.size.y);
+
+  for (size_t y = 0;  y < area.size.y;  y++)
+  {
+    std::memcpy(result->getPixel(0, y),
+                getPixel(area.position.x, area.position.y + y),
+                rowSize);
   }
 
   return result;
+}
+
+Ref<Image> Image::create(const ResourceInfo& info,
+                         const PixelFormat& format,
+                         unsigned int width,
+                         unsigned int height,
+                         unsigned int depth,
+                         const void* data,
+                         ptrdiff_t pitch)
+{
+  Ref<Image> image(new Image(info));
+  if (!image->init(format, width, height, depth, data, pitch))
+    return NULL;
+
+  return image;
 }
 
 Ref<Image> Image::read(ResourceCache& cache, const String& name)
@@ -424,10 +359,95 @@ Ref<Image> Image::read(ResourceCache& cache, const String& name)
   return reader.read(name);
 }
 
+Image::Image(const ResourceInfo& info):
+  Resource(info)
+{
+}
+
+bool Image::init(const PixelFormat& initFormat,
+                 unsigned int initWidth,
+                 unsigned int initHeight,
+                 unsigned int initDepth,
+                 const void* initData,
+                 ptrdiff_t pitch)
+{
+  format = initFormat;
+  width = initWidth;
+  height = initHeight;
+  depth = initDepth;
+
+  if (!format.isValid())
+  {
+    logError("Cannot create image with invalid pixel format");
+    return false;
+  }
+
+  if (!width || !height || !depth)
+  {
+    logError("Cannot create image with zero size in any dimension");
+    return false;
+  }
+
+  if ((height > 1) && (width == 1))
+  {
+    width = height;
+    height = 1;
+  }
+
+  if ((depth > 1) && (height == 1))
+  {
+    height = depth;
+    depth = 1;
+  }
+
+  if (initData)
+  {
+    if (pitch)
+    {
+      const size_t pixelSize = format.getSize();
+      data.resize(width * height * depth * pixelSize);
+
+      uint8* target = data;
+      const uint8* source = (const uint8*) initData;
+
+      for (size_t z = 0;  z < depth;  z++)
+      {
+        for (size_t y = 0;  y < height;  y++)
+        {
+          std::memcpy(target, source, width * pixelSize);
+          source += pitch;
+          target += width * pixelSize;
+        }
+      }
+    }
+    else
+      std::memcpy(data, initData, width * height * depth * format.getSize());
+  }
+  else
+  {
+    const size_t size = width * height * depth * format.getSize();
+    data.resize(size);
+    std::memset(data, 0, size);
+  }
+
+  return true;
+}
+
+Image::Image(const Image& source):
+  Resource(source)
+{
+  panic("Image objects may not be copied");
+}
+
+Image& Image::operator = (const Image& source)
+{
+  panic("Image objects may not be assigned");
+}
+
 ///////////////////////////////////////////////////////////////////////
 
 ImageReader::ImageReader(ResourceCache& cache):
-  ResourceReader(cache)
+  ResourceReader<Image>(cache)
 {
 }
 
@@ -436,7 +456,7 @@ Ref<Image> ImageReader::read(const String& name, const Path& path)
   std::ifstream stream(path.asString().c_str(), std::ios::in | std::ios::binary);
   if (stream.fail())
   {
-    logError("Failed to open image \'%s\'", name.c_str());
+    logError("Failed to open image file \'%s\'", path.asString().c_str());
     return NULL;
   }
 
@@ -446,13 +466,13 @@ Ref<Image> ImageReader::read(const String& name, const Path& path)
 
     if (!stream.read((char*) header, sizeof(header)))
     {
-      logError("Failed to read PNG file header in \'%s\'", name.c_str());
+      logError("Failed to read PNG header from image \'%s\'", name.c_str());
       return NULL;
     }
 
     if (png_sig_cmp(header, 0, sizeof(header)))
     {
-      logError("Invalid PNG signature in \'%s\'", name.c_str());
+      logError("Invalid PNG signature in image \'%s\'", name.c_str());
       return NULL;
     }
   }
@@ -469,7 +489,8 @@ Ref<Image> ImageReader::read(const String& name, const Path& path)
                                      writeWarningPNG);
     if (!context)
     {
-      logError("Failed to create PNG read struct for \'%s\'", name.c_str());
+      logError("Failed to create PNG read struct for image \'%s\'",
+               name.c_str());
       return NULL;
     }
 
@@ -480,7 +501,8 @@ Ref<Image> ImageReader::read(const String& name, const Path& path)
     {
       png_destroy_read_struct(&context, NULL, NULL);
 
-      logError("Failed to create PNG info struct for \'%s\'", name.c_str());
+      logError("Failed to create PNG info struct for image \'%s\'",
+               name.c_str());
       return NULL;
     }
 
@@ -489,55 +511,40 @@ Ref<Image> ImageReader::read(const String& name, const Path& path)
     {
       png_destroy_read_struct(&context, &pngInfo, NULL);
 
-      logError("Failed to create PNG end info struct for \'%s\'", name.c_str());
+      logError("Failed to create PNG end info struct for image \'%s\'",
+               name.c_str());
       return NULL;
     }
 
     png_set_sig_bytes(context, 8);
+
+    png_read_png(context, pngInfo, PNG_TRANSFORM_PACKING | PNG_TRANSFORM_EXPAND, NULL);
   }
 
-  PixelFormat format;
-  unsigned int width;
-  unsigned int height;
+  const PixelFormat format = convertToPixelFormat(png_get_color_type(context, pngInfo),
+                                                  png_get_bit_depth(context, pngInfo));
 
-  // Read image information
+  if (!format.isValid())
   {
-    png_read_png(context, pngInfo, PNG_TRANSFORM_STRIP_16 | PNG_TRANSFORM_PACKING | PNG_TRANSFORM_EXPAND, NULL);
+    png_destroy_read_struct(&context, &pngInfo, &pngEndInfo);
 
-    if (png_get_bit_depth(context, pngInfo) != 8)
-    {
-      png_destroy_read_struct(&context, &pngInfo, &pngEndInfo);
-
-      logError("Unsupported bit depth in \'%s\'", name.c_str());
-      return NULL;
-    }
-
-    if (!getDecodeConversionFormatPNG(format, png_get_color_type(context, pngInfo)))
-    {
-      png_destroy_read_struct(&context, &pngInfo, &pngEndInfo);
-
-      logError("Unsupported color type in \'%s\'", name.c_str());
-      return NULL;
-    }
-
-    width  = png_get_image_width(context, pngInfo);
-    height = png_get_image_height(context, pngInfo);
+    logError("Image \'%s\' has unsupported pixel format", name.c_str());
+    return NULL;
   }
 
+  const unsigned int width  = png_get_image_width(context, pngInfo);
+  const unsigned int height = png_get_image_height(context, pngInfo);
   const ResourceInfo info(cache, name, path);
 
-  Ref<Image> result(new Image(info, format, width, height));
+  Ref<Image> result = Image::create(info, format, width, height);
 
   // Read image data
   {
-    const unsigned int size = png_get_rowbytes(context, pngInfo);
+    const size_t rowSize = png_get_rowbytes(context, pngInfo);
+    png_byte** rows = png_get_rows(context, pngInfo);
 
-    png_bytepp rows = png_get_rows(context, pngInfo);
-
-    uint8* data = (uint8*) result->getPixels();
-
-    for (unsigned int i = 0;  i < height;  i++)
-      std::memcpy(data + (height - i - 1) * size, rows[i], size);
+    for (size_t i = 0;  i < height;  i++)
+      std::memcpy(result->getPixel(0, height - i - 1), rows[i], rowSize);
   }
 
   // Clean up library structures
@@ -559,8 +566,7 @@ bool ImageWriter::write(const Path& path, const Image& image)
   std::ofstream stream(path.asString().c_str());
   if (!stream.is_open())
   {
-    logError("Failed to open \'%s\' for writing",
-             path.asString().c_str());
+    logError("Failed to create image file \'%s\'", path.asString().c_str());
     return false;
   }
 
@@ -570,7 +576,8 @@ bool ImageWriter::write(const Path& path, const Image& image)
                                                 writeWarningPNG);
   if (!context)
   {
-    logError("Failed to create write struct");
+    logError("Failed to create PNG write struct for image file \'%s\'",
+             path.asString().c_str());
     return false;
   }
 
@@ -581,16 +588,22 @@ bool ImageWriter::write(const Path& path, const Image& image)
   if (!info)
   {
     png_destroy_write_struct(&context, png_infopp(NULL));
-    logError("Failed to create info struct");
+    logError("Failed to create PNG info struct for image file \'%s\'",
+             path.asString().c_str());
     return false;
   }
 
-  int format;
+  const PixelFormat& format = image.getFormat();
 
-  if (!getEncodeConversionFormatPNG(format, image.getFormat()))
+  int colorType, bitDepth;
+
+  if (!convertToColorType(colorType, format) ||
+      !convertToBitDepth(bitDepth, format))
   {
     png_destroy_write_struct(&context, &info);
-    logError("Failed to encode image format");
+    logError("Failed to write image \'%s\': pixel format \'%s\' is not supported by the PNG format",
+             image.getName().c_str(),
+             format.asString().c_str());
     return false;
   }
 
@@ -598,25 +611,19 @@ bool ImageWriter::write(const Path& path, const Image& image)
                info,
                image.getWidth(),
                image.getHeight(),
-               8,
-               format,
+               bitDepth,
+               colorType,
                PNG_INTERLACE_NONE,
                PNG_COMPRESSION_TYPE_DEFAULT,
                PNG_FILTER_TYPE_DEFAULT);
 
-  const uint8* data = (const uint8*) image.getPixels();
-
-  const unsigned int pixelSize = image.getFormat().getSize();
-
   std::vector<const png_byte*> rows(image.getHeight());
 
-  for (unsigned int y = 0;  y < image.getHeight();  y++)
-    rows[y] = data + (image.getHeight() - y - 1) * image.getWidth() * pixelSize;
+  for (size_t i = 0;  i < image.getHeight();  i++)
+    rows[i] = (const png_byte*) image.getPixel(0, image.getHeight() - i - 1);
 
   png_set_rows(context, info, const_cast<png_byte**>(&rows[0]));
-
   png_write_png(context, info, PNG_TRANSFORM_IDENTITY, NULL);
-
   png_destroy_write_struct(&context, &info);
 
   return true;

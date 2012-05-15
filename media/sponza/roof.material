@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="ISO-8859-1" ?>
-<material version="6">
-  <technique type="deferred" quality="1">
+<material version="8">
+  <technique type="deferred">
     <pass>
-      <program path="wendy/DeferredMapped.program">
-        <sampler name="colormap" texture="roof_diff.texture" />
+      <program vs="wendy/DeferredMapped.vs" fs="wendy/DeferredMapped.fs">
+        <sampler name="colormap" image="roof_diff.png" filter="trilinear" address="wrap" />
       </program>
     </pass>
   </technique>

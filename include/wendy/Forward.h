@@ -26,9 +26,10 @@
 #define WENDY_FORWARD_H
 ///////////////////////////////////////////////////////////////////////
 
+#include <wendy/RenderPool.h>
+#include <wendy/RenderSystem.h>
 #include <wendy/RenderState.h>
 #include <wendy/RenderScene.h>
-#include <wendy/RenderPool.h>
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -40,6 +41,7 @@ namespace wendy
 ///////////////////////////////////////////////////////////////////////
 
 /*! @brief Shared program state for the forward renderer.
+ *  @ingroup renderer
  */
 class SharedProgramState : public render::SharedProgramState
 {
@@ -48,11 +50,19 @@ class SharedProgramState : public render::SharedProgramState
 ///////////////////////////////////////////////////////////////////////
 
 /*! @brief Forward renderer configuration.
+ *  @ingroup renderer
  */
 class Config
 {
 public:
-  /*! The shared program state object to be used by the renderer.
+  /*! Constructor.
+   *  @param[in] pool The geometry pool to use.
+   */
+  Config(render::GeometryPool& pool);
+  /*! The geometry pool to be used by the renderer.
+   */
+  Ref<render::GeometryPool> pool;
+  /*! The shared program state to be used by the renderer.
    */
   Ref<SharedProgramState> state;
 };
@@ -60,8 +70,9 @@ public:
 ///////////////////////////////////////////////////////////////////////
 
 /*! @brief Forward renderer.
+ *  @ingroup renderer
  */
-class Renderer
+class Renderer : public render::System
 {
 public:
   /*! Renders the specified scene to the current framebuffer using the
@@ -71,20 +82,17 @@ public:
   /*! @return The shared program state object used by this renderer.
    */
   SharedProgramState& getSharedProgramState();
-  /*! @return The geometry pool used by this renderer.
-   */
-  render::GeometryPool& getGeometryPool();
   /*! Creates a renderer object using the specified geometry pool and the
    *  specified configuration.
    *  @return The newly constructed renderer object, or @c NULL if an error
    *  occurred.
    */
-  static Renderer* create(render::GeometryPool& pool, const Config& config);
+  static Ref<Renderer> create(const Config& config);
 private:
   Renderer(render::GeometryPool& pool);
   bool init(const Config& config);
   void renderOperations(const render::Queue& queue);
-  render::GeometryPool& pool;
+  void releaseObjects();
   Ref<SharedProgramState> state;
 };
 

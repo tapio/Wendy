@@ -1,9 +1,10 @@
+#version 330
 
-attribute vec3 wyPosition;
-attribute vec3 wyNormal;
+in vec3 wyPosition;
+in vec3 wyNormal;
 
-varying vec3 vPosition;
-varying vec3 vNormal;
+out vec3 vPosition;
+out vec3 vNormal;
 
 void main()
 {

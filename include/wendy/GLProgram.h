@@ -45,23 +45,75 @@ class Program;
 
 ///////////////////////////////////////////////////////////////////////
 
-/*! @brief Shader container.
+/*! @brief GLSL shader type enumeration.
  *  @ingroup opengl
  */
-class Shader
+enum ShaderType
 {
-public:
-  Shader(const char* text = "",
-         const char* name = "",
-         unsigned int version = 120);
-  String text;
-  String name;
-  unsigned int version;
+  VERTEX_SHADER,
+  FRAGMENT_SHADER,
+  GEOMETRY_SHADER,
+  TESS_CONTROL_SHADER,
+  TESS_EVALUATION_SHADER
 };
 
 ///////////////////////////////////////////////////////////////////////
 
-/*! @brief Program vertex attribute.
+/*! @brief GLSL define key/value pair set.
+ *  @ingroup opengl
+ */
+typedef std::vector<std::pair<String, String>> ShaderDefines;
+
+///////////////////////////////////////////////////////////////////////
+
+/*! @brief GLSL shader.
+ *  @ingroup opengl
+ */
+class Shader : public Resource
+{
+  friend class Program;
+public:
+  ~Shader();
+  bool isVertexShader() const;
+  bool isFragmentShader() const;
+  bool isGeometryShader() const;
+  bool isTessControlShader() const;
+  bool isTessEvaluationShader() const;
+  ShaderType getType() const;
+  Context& getContext() const;
+  static Ref<Shader> create(const ResourceInfo& info,
+                            Context& context,
+                            ShaderType type,
+                            const String& text,
+                            const ShaderDefines& defines = ShaderDefines());
+  static Ref<Shader> read(Context& context,
+                          ShaderType type,
+                          const String& textName,
+                          const ShaderDefines& defines = ShaderDefines());
+private:
+  Shader(const ResourceInfo& info, Context& context, ShaderType type);
+  bool init(const String& text, const ShaderDefines& defines);
+  Context& context;
+  ShaderType type;
+  unsigned int shaderID;
+};
+
+///////////////////////////////////////////////////////////////////////
+
+/*! @brief GLSL vertex attribute type enumeration.
+ *  @ingroup opengl
+ */
+enum AttributeType
+{
+  ATTRIBUTE_FLOAT,
+  ATTRIBUTE_VEC2,
+  ATTRIBUTE_VEC3,
+  ATTRIBUTE_VEC4
+};
+
+///////////////////////////////////////////////////////////////////////
+
+/*! @brief GLSL vertex attribute.
  *  @ingroup opengl
  */
 class Attribute
@@ -69,13 +121,6 @@ class Attribute
   friend class Program;
   friend class Context;
 public:
-  enum Type
-  {
-    FLOAT,
-    VEC2,
-    VEC3,
-    VEC4
-  };
   /*! Binds this attribute to the specified stride and offset of the
    *  current vertex buffer.
    */
@@ -92,7 +137,7 @@ public:
   bool isVector() const;
   /*! @return The type of this attribute.
    */
-  Type getType() const;
+  AttributeType getType() const;
   /*! @return The name of this attribute.
    */
   const String& getName() const;
@@ -101,32 +146,36 @@ public:
   unsigned int getElementCount() const;
   /*! @return The GLSL name of the specified attribute type.
    */
-  static const char* getTypeName(Type type);
+  static const char* getTypeName(AttributeType type);
 private:
-  Type type;
+  AttributeType type;
   String name;
   int location;
 };
 
 ///////////////////////////////////////////////////////////////////////
 
-/*! @brief Program sampler uniform.
+/*! @brief GLSL sampler uniform type enumeration.
+ *  @ingroup opengl
+ */
+enum SamplerType
+{
+  SAMPLER_1D,
+  SAMPLER_2D,
+  SAMPLER_3D,
+  SAMPLER_RECT,
+  SAMPLER_CUBE
+};
+
+///////////////////////////////////////////////////////////////////////
+
+/*! @brief GLSL sampler uniform.
  *  @ingroup opengl
  */
 class Sampler
 {
   friend class Program;
 public:
-  /*! Sampler uniform type enumeration.
-   */
-  enum Type
-  {
-    SAMPLER_1D,
-    SAMPLER_2D,
-    SAMPLER_3D,
-    SAMPLER_RECT,
-    SAMPLER_CUBE
-  };
   /*! Binds this sampler to the specified texture unit.
    */
   void bind(unsigned int unit);
@@ -142,7 +191,7 @@ public:
   bool isShared() const;
   /*! @return The type of this sampler.
    */
-  Type getType() const;
+  SamplerType getType() const;
   /*! @return The name of this sampler.
    */
   const String& getName() const;
@@ -152,35 +201,39 @@ public:
   int getSharedID() const;
   /*! @return The GLSL name of the specified sampler type.
    */
-  static const char* getTypeName(Type type);
+  static const char* getTypeName(SamplerType type);
 private:
   String name;
-  Type type;
+  SamplerType type;
   int location;
   int sharedID;
 };
 
 ///////////////////////////////////////////////////////////////////////
 
-/*! @brief Program non-sampler uniform.
+/*! @brief GLSL non-sampler uniform type enumeration.
+ *  @ingroup opengl
+ */
+enum UniformType
+{
+  UNIFORM_FLOAT,
+  UNIFORM_VEC2,
+  UNIFORM_VEC3,
+  UNIFORM_VEC4,
+  UNIFORM_MAT2,
+  UNIFORM_MAT3,
+  UNIFORM_MAT4
+};
+
+///////////////////////////////////////////////////////////////////////
+
+/*! @brief GLSL program non-sampler uniform.
  *  @ingroup opengl
  */
 class Uniform
 {
   friend class Program;
 public:
-  /*! Non-sampler uniform type enumeration.
-   */
-  enum Type
-  {
-    FLOAT,
-    VEC2,
-    VEC3,
-    VEC4,
-    MAT2,
-    MAT3,
-    MAT4
-  };
   /*! Copies a new value for this uniform from the specified address.
    *  @param[in] data The address of the value to use.
    *
@@ -209,7 +262,7 @@ public:
   bool isMatrix() const;
   /*! @return The type of this uniform.
    */
-  Type getType() const;
+  UniformType getType() const;
   /*! @return The name of this uniform.
    */
   const String& getName() const;
@@ -222,20 +275,18 @@ public:
   int getSharedID() const;
   /*! @return The GLSL name of the specified uniform type.
    */
-  static const char* getTypeName(Type type);
+  static const char* getTypeName(UniformType type);
 private:
   String name;
-  Type type;
+  UniformType type;
   int location;
   int sharedID;
 };
 
 ///////////////////////////////////////////////////////////////////////
 
-/*! @brief GPU program.
+/*! @brief GLSL program.
  *  @ingroup opengl
- *
- *  Represents a complete set of GPU programs.
  */
 class Program : public Resource
 {
@@ -248,7 +299,6 @@ public:
   const Sampler* findSampler(const char* name) const;
   Uniform* findUniform(const char* name);
   const Uniform* findUniform(const char* name) const;
-  bool isCurrent() const;
   bool hasGeometryShader() const;
   bool hasTessellationShaders() const;
   unsigned int getAttributeCount() const;
@@ -263,47 +313,57 @@ public:
   Context& getContext() const;
   static Ref<Program> create(const ResourceInfo& info,
                              Context& context,
-                             const Shader& vertexShader,
-                             const Shader& fragmentShader);
+                             Shader& vertexShader,
+                             Shader& fragmentShader);
   static Ref<Program> create(const ResourceInfo &info,
                              Context &context,
-                             const Shader& vertexShader,
-                             const Shader& fragmentShader,
-                             const Shader& geometryShader);
+                             Shader& vertexShader,
+                             Shader& fragmentShader,
+                             Shader& geometryShader);
   static Ref<Program> create(const ResourceInfo &info,
                              Context &context,
-                             const Shader& vertexShader,
-                             const Shader& fragmentShader,
-                             const Shader& tessCtrlShader,
-                             const Shader& tessEvalShader);
+                             Shader& vertexShader,
+                             Shader& fragmentShader,
+                             Shader& tessCtrlShader,
+                             Shader& tessEvalShader);
   static Ref<Program> create(const ResourceInfo &info,
                              Context &context,
-                             const Shader& vertexShader,
-                             const Shader& fragmentShader,
-                             const Shader& geometryShader,
-                             const Shader& tessCtrlShader,
-                             const Shader& tessEvalShader);
-  static Ref<Program> read(Context& context, const String& name);
+                             Shader& vertexShader,
+                             Shader& fragmentShader,
+                             Shader& geometryShader,
+                             Shader& tessCtrlShader,
+                             Shader& tessEvalShader);
+  static Ref<Program> read(Context& context,
+                           const String& vertexShaderName,
+                           const String& fragmentShaderName,
+                           const String& geometryShaderName = "",
+                           const String& tessCtrlShaderName = "",
+                           const String& tessEvalShaderName = "",
+                           const ShaderDefines& defines = ShaderDefines());
 private:
   Program(const ResourceInfo& info, Context& context);
   Program(const Program& source);
-  bool attachShader(const Shader& shader, unsigned int type);
-  bool link();
+  bool init(Shader* vertexShader,
+            Shader* fragmentShader,
+            Shader* geometryShader = NULL,
+            Shader* tessCtrlShader = NULL,
+            Shader* tessEvalShader = NULL);
   bool retrieveUniforms();
   bool retrieveAttributes();
   void bind();
   void unbind();
   Program& operator = (const Program& source);
   bool isValid() const;
+  String getInfoLog() const;
   typedef std::vector<Attribute> AttributeList;
   typedef std::vector<Sampler> SamplerList;
   typedef std::vector<Uniform> UniformList;
   Context& context;
-  unsigned int vertexShaderID;
-  unsigned int fragmentShaderID;
-  unsigned int geometryShaderID;
-  unsigned int tessCtrlShaderID;
-  unsigned int tessEvalShaderID;
+  Ref<Shader> vertexShader;
+  Ref<Shader> fragmentShader;
+  Ref<Shader> geometryShader;
+  Ref<Shader> tessCtrlShader;
+  Ref<Shader> tessEvalShader;
   unsigned int programID;
   AttributeList attributes;
   SamplerList samplers;
@@ -312,7 +372,7 @@ private:
 
 ///////////////////////////////////////////////////////////////////////
 
-/*! @brief GPU program interface validator.
+/*! @brief GLSL program interface validator.
  *  @ingroup opengl
  */
 class ProgramInterface
@@ -322,17 +382,17 @@ public:
    *  @param[in] name The name of the sampler.
    *  @param[in] type The type of the sampler.
    */
-  void addSampler(const char* name, Sampler::Type type);
+  void addSampler(const char* name, SamplerType type);
   /*! Adds a sampler to this interface.
    *  @param[in] name The name of the sampler.
    *  @param[in] type The type of the sampler.
    */
-  void addUniform(const char* name, Uniform::Type type);
+  void addUniform(const char* name, UniformType type);
   /*! Adds a sampler to this interface.
    *  @param[in] name The name of the sampler.
    *  @param[in] type The type of the sampler.
    */
-  void addAttribute(const char* name, Attribute::Type type);
+  void addAttribute(const char* name, AttributeType type);
   /*! Adds attributes for all components of the specified vertex format.
    *  @param[in] format The vertex format to use.
    */
@@ -356,27 +416,12 @@ public:
    */
   bool matches(const VertexFormat& format, bool verbose = false) const;
 private:
-  typedef std::vector<std::pair<String, Sampler::Type> > SamplerList;
-  typedef std::vector<std::pair<String, Uniform::Type> > UniformList;
-  typedef std::vector<std::pair<String, Attribute::Type> > AttributeList;
+  typedef std::vector<std::pair<String, SamplerType>> SamplerList;
+  typedef std::vector<std::pair<String, UniformType>> UniformList;
+  typedef std::vector<std::pair<String, AttributeType>> AttributeList;
   SamplerList samplers;
   UniformList uniforms;
   AttributeList attributes;
-};
-
-///////////////////////////////////////////////////////////////////////
-
-/*! @brief GPU program XML codec.
- *  @ingroup opengl
- */
-class ProgramReader : public ResourceReader<Program>
-{
-public:
-  ProgramReader(Context& context);
-  using ResourceReader::read;
-  Ref<Program> read(const String& name, const Path& path);
-private:
-  Context& context;
 };
 
 ///////////////////////////////////////////////////////////////////////

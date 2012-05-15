@@ -63,7 +63,7 @@ public:
 
 VertexFormat ElementVertex::format("2f:sizeScale 2f:offsetScale 2f:texScale");
 
-const unsigned int THEME_XML_VERSION = 2;
+const unsigned int THEME_XML_VERSION = 3;
 
 } /*namespace*/
 
@@ -98,8 +98,8 @@ Ref<Theme> Theme::read(render::GeometryPool& pool, const String& name)
 ///////////////////////////////////////////////////////////////////////
 
 ThemeReader::ThemeReader(render::GeometryPool& initPool):
-  ResourceReader(initPool.getContext().getCache()),
-  pool(initPool)
+  ResourceReader<Theme>(initPool.getContext().getCache()),
+  pool(&initPool)
 {
   if (widgetStateMap.isEmpty())
   {
@@ -139,17 +139,19 @@ Ref<Theme> ThemeReader::read(const String& name, const Path& path)
 
   Ref<Theme> theme = new Theme(ResourceInfo(cache, name, path));
 
-  const String textureName(root.attribute("texture").value());
-  if (textureName.empty())
+  const String imageName(root.attribute("image").value());
+  if (imageName.empty())
   {
-    logError("Texture for UI theme \'%s\' is empty", name.c_str());
+    logError("No image specified for UI theme \'%s\'", name.c_str());
     return NULL;
   }
 
-  theme->texture = GL::Texture::read(pool.getContext(), textureName);
+  theme->texture = GL::Texture::read(pool->getContext(),
+                                     GL::TEXTURE_RECT,
+                                     imageName);
   if (!theme->texture)
   {
-    logError("Failed to load texture for UI theme \'%s\'", name.c_str());
+    logError("Failed to create texture for UI theme \'%s\'", name.c_str());
     return NULL;
   }
 
@@ -160,7 +162,7 @@ Ref<Theme> ThemeReader::read(const String& name, const Path& path)
     return NULL;
   }
 
-  theme->font = render::Font::read(pool, fontName);
+  theme->font = render::Font::read(*pool, fontName);
   if (!theme->font)
   {
     logError("Failed to load font for UI theme \'%s\'", name.c_str());
@@ -213,7 +215,7 @@ Ref<Theme> ThemeReader::read(const String& name, const Path& path)
 
 void Drawer::begin()
 {
-  GL::Context& context = pool.getContext();
+  GL::Context& context = getContext();
 
   GL::Framebuffer& framebuffer = context.getCurrentFramebuffer();
   const unsigned int width = framebuffer.getWidth();
@@ -228,7 +230,7 @@ void Drawer::begin()
 
 void Drawer::end()
 {
-  pool.getContext().setCurrentSharedProgramState(NULL);
+  getContext().setCurrentSharedProgramState(NULL);
 }
 
 bool Drawer::pushClipArea(const Rect& area)
@@ -238,7 +240,7 @@ bool Drawer::pushClipArea(const Rect& area)
 
   const Rect& total = clipAreaStack.getTotal();
 
-  GL::Context& context = pool.getContext();
+  GL::Context& context = getContext();
   context.setScissorArea(Recti(ivec2(total.position), ivec2(total.size)));
 
   return true;
@@ -248,7 +250,7 @@ void Drawer::popClipArea()
 {
   clipAreaStack.pop();
 
-  GL::Context& context = pool.getContext();
+  GL::Context& context = getContext();
   GL::Framebuffer& framebuffer = context.getCurrentFramebuffer();
 
   Recti area;
@@ -270,14 +272,14 @@ void Drawer::drawPoint(const vec2& point, const vec4& color)
   vertex.position = point;
 
   GL::VertexRange range;
-  if (!pool.allocateVertices(range, 1, Vertex2fv::format))
+  if (!getGeometryPool().allocateVertices(range, 1, Vertex2fv::format))
     return;
 
   range.copyFrom(&vertex);
 
   setDrawingState(color, true);
 
-  pool.getContext().render(GL::PrimitiveRange(GL::POINT_LIST, range));
+  getContext().render(GL::PrimitiveRange(GL::POINT_LIST, range));
 }
 
 void Drawer::drawLine(const Segment2& segment, const vec4& color)
@@ -287,14 +289,14 @@ void Drawer::drawLine(const Segment2& segment, const vec4& color)
   vertices[1].position = segment.end;
 
   GL::VertexRange range;
-  if (!pool.allocateVertices(range, 2, Vertex2fv::format))
+  if (!getGeometryPool().allocateVertices(range, 2, Vertex2fv::format))
     return;
 
   range.copyFrom(vertices);
 
   setDrawingState(color, true);
 
-  pool.getContext().render(GL::PrimitiveRange(GL::LINE_LIST, range));
+  getContext().render(GL::PrimitiveRange(GL::LINE_LIST, range));
 }
 
 void Drawer::drawTriangle(const Triangle2& triangle, const vec4& color)
@@ -305,14 +307,14 @@ void Drawer::drawTriangle(const Triangle2& triangle, const vec4& color)
   vertices[2].position = triangle.P[2];
 
   GL::VertexRange range;
-  if (!pool.allocateVertices(range, 3, Vertex2fv::format))
+  if (!getGeometryPool().allocateVertices(range, 3, Vertex2fv::format))
     return;
 
   range.copyFrom(vertices);
 
   setDrawingState(color, true);
 
-  pool.getContext().render(GL::PrimitiveRange(GL::TRIANGLE_LIST, range));
+  getContext().render(GL::PrimitiveRange(GL::TRIANGLE_LIST, range));
 }
 
 void Drawer::drawBezier(const BezierCurve2& spline, const vec4& color)
@@ -321,7 +323,7 @@ void Drawer::drawBezier(const BezierCurve2& spline, const vec4& color)
   spline.tessellate(points);
 
   GL::VertexRange range;
-  if (!pool.allocateVertices(range, points.size(), Vertex2fv::format))
+  if (!getGeometryPool().allocateVertices(range, points.size(), Vertex2fv::format))
     return;
 
   // Realize vertices
@@ -334,7 +336,7 @@ void Drawer::drawBezier(const BezierCurve2& spline, const vec4& color)
 
   setDrawingState(color, true);
 
-  pool.getContext().render(GL::PrimitiveRange(GL::LINE_STRIP, range));
+  getContext().render(GL::PrimitiveRange(GL::LINE_STRIP, range));
 }
 
 void Drawer::drawRectangle(const Rect& rectangle, const vec4& color)
@@ -355,14 +357,14 @@ void Drawer::drawRectangle(const Rect& rectangle, const vec4& color)
   vertices[3].position = vec2(minX, maxY);
 
   GL::VertexRange range;
-  if (!pool.allocateVertices(range, 4, Vertex2fv::format))
+  if (!getGeometryPool().allocateVertices(range, 4, Vertex2fv::format))
     return;
 
   range.copyFrom(vertices);
 
   setDrawingState(color, true);
 
-  pool.getContext().render(GL::PrimitiveRange(GL::LINE_LOOP, range));
+  getContext().render(GL::PrimitiveRange(GL::LINE_LOOP, range));
 }
 
 void Drawer::fillTriangle(const Triangle2& triangle, const vec4& color)
@@ -373,14 +375,14 @@ void Drawer::fillTriangle(const Triangle2& triangle, const vec4& color)
   vertices[2].position = triangle.P[2];
 
   GL::VertexRange range;
-  if (!pool.allocateVertices(range, 3, Vertex2fv::format))
+  if (!getGeometryPool().allocateVertices(range, 3, Vertex2fv::format))
     return;
 
   range.copyFrom(vertices);
 
   setDrawingState(color, false);
 
-  pool.getContext().render(GL::PrimitiveRange(GL::TRIANGLE_LIST, range));
+  getContext().render(GL::PrimitiveRange(GL::TRIANGLE_LIST, range));
 }
 
 void Drawer::fillRectangle(const Rect& rectangle, const vec4& color)
@@ -401,14 +403,14 @@ void Drawer::fillRectangle(const Rect& rectangle, const vec4& color)
   vertices[3].position = vec2(minX, maxY);
 
   GL::VertexRange range;
-  if (!pool.allocateVertices(range, 4, Vertex2fv::format))
+  if (!getGeometryPool().allocateVertices(range, 4, Vertex2fv::format))
     return;
 
   range.copyFrom(vertices);
 
   setDrawingState(color, false);
 
-  pool.getContext().render(GL::PrimitiveRange(GL::TRIANGLE_FAN, range));
+  getContext().render(GL::PrimitiveRange(GL::TRIANGLE_FAN, range));
 }
 
 void Drawer::blitTexture(const Rect& area, GL::Texture& texture)
@@ -433,7 +435,7 @@ void Drawer::blitTexture(const Rect& area, GL::Texture& texture)
   vertices[3].position = vec2(minX, maxY);
 
   GL::VertexRange range;
-  if (!pool.allocateVertices(range, 4, Vertex2ft2fv::format))
+  if (!getGeometryPool().allocateVertices(range, 4, Vertex2ft2fv::format))
     return;
 
   range.copyFrom(vertices);
@@ -446,7 +448,7 @@ void Drawer::blitTexture(const Rect& area, GL::Texture& texture)
   blitPass.setSamplerState("image", &texture);
   blitPass.apply();
 
-  pool.getContext().render(GL::PrimitiveRange(GL::TRIANGLE_FAN, range));
+  getContext().render(GL::PrimitiveRange(GL::TRIANGLE_FAN, range));
 
   blitPass.setSamplerState("image", NULL);
 }
@@ -546,6 +548,16 @@ const Theme& Drawer::getTheme() const
   return *theme;
 }
 
+GL::Context& Drawer::getContext()
+{
+  return pool->getContext();
+}
+
+render::GeometryPool& Drawer::getGeometryPool()
+{
+  return *pool;
+}
+
 render::Font& Drawer::getCurrentFont()
 {
   return *currentFont;
@@ -564,12 +576,7 @@ float Drawer::getCurrentEM() const
   return currentFont->getHeight();
 }
 
-render::GeometryPool& Drawer::getGeometryPool() const
-{
-  return pool;
-}
-
-Drawer* Drawer::create(render::GeometryPool& pool)
+Ref<Drawer> Drawer::create(render::GeometryPool& pool)
 {
   Ptr<Drawer> drawer(new Drawer(pool));
   if (!drawer->init())
@@ -579,13 +586,13 @@ Drawer* Drawer::create(render::GeometryPool& pool)
 }
 
 Drawer::Drawer(render::GeometryPool& initPool):
-  pool(initPool)
+  pool(&initPool)
 {
 }
 
 bool Drawer::init()
 {
-  GL::Context& context = pool.getContext();
+  GL::Context& context = getContext();
 
   state = new render::SharedProgramState();
   if (!state->reserveSupported(context))
@@ -667,7 +674,7 @@ bool Drawer::init()
   {
     const String themeName("wendy/UIDefault.theme");
 
-    theme = Theme::read(pool, themeName);
+    theme = Theme::read(getGeometryPool(), themeName);
     if (!theme)
     {
       logError("Failed to load default UI theme \'%s\'", themeName.c_str());
@@ -679,28 +686,27 @@ bool Drawer::init()
 
   // Set up solid pass
   {
-    const String programName("wendy/UIElement.program");
-
-    Ref<GL::Program> program = GL::Program::read(context, programName);
+    Ref<GL::Program> program = GL::Program::read(context,
+                                                 "wendy/UIElement.vs",
+                                                 "wendy/UIElement.fs");
     if (!program)
     {
-      logError("Failed to load UI element program \'%s\'",
-               programName.c_str());
+      logError("Failed to load UI element program");
       return false;
     }
 
     GL::ProgramInterface interface;
-    interface.addUniform("elementPos", GL::Uniform::VEC2);
-    interface.addUniform("elementSize", GL::Uniform::VEC2);
-    interface.addUniform("texPos", GL::Uniform::VEC2);
-    interface.addUniform("texSize", GL::Uniform::VEC2);
-    interface.addSampler("image", GL::Sampler::SAMPLER_RECT);
+    interface.addUniform("elementPos", GL::UNIFORM_VEC2);
+    interface.addUniform("elementSize", GL::UNIFORM_VEC2);
+    interface.addUniform("texPos", GL::UNIFORM_VEC2);
+    interface.addUniform("texSize", GL::UNIFORM_VEC2);
+    interface.addSampler("image", GL::SAMPLER_RECT);
     interface.addAttributes(ElementVertex::format);
 
     if (!interface.matches(*program, true))
     {
       logError("UI element program \'%s\' does not conform to the required interface",
-               programName.c_str());
+               program->getName().c_str());
       return false;
     }
 
@@ -710,28 +716,32 @@ bool Drawer::init()
     elementPass.setSamplerState("image", theme->texture);
     elementPass.setBlendFactors(GL::BLEND_SRC_ALPHA, GL::BLEND_ONE_MINUS_SRC_ALPHA);
     elementPass.setMultisampling(false);
+
+    elementPosIndex = elementPass.getUniformStateIndex("elementPos");
+    elementSizeIndex = elementPass.getUniformStateIndex("elementSize");
+    texPosIndex = elementPass.getUniformStateIndex("texPos");
+    texSizeIndex = elementPass.getUniformStateIndex("texSize");
   }
 
   // Set up solid pass
   {
-    const String programName("wendy/UIDrawSolid.program");
-
-    Ref<GL::Program> program = GL::Program::read(context, programName);
+    Ref<GL::Program> program = GL::Program::read(context,
+                                                 "wendy/UIDrawSolid.vs",
+                                                 "wendy/UIDrawSolid.fs");
     if (!program)
     {
-      logError("Failed to load UI drawing shader program \'%s\'",
-               programName.c_str());
+      logError("Failed to load UI drawing shader program");
       return false;
     }
 
     GL::ProgramInterface interface;
-    interface.addUniform("color", GL::Uniform::VEC4);
+    interface.addUniform("color", GL::UNIFORM_VEC4);
     interface.addAttributes(Vertex2fv::format);
 
     if (!interface.matches(*program, true))
     {
       logError("UI drawing shader program \'%s\' does not conform to the required interface",
-               programName.c_str());
+               program->getName().c_str());
       return false;
     }
 
@@ -744,24 +754,23 @@ bool Drawer::init()
 
   // Set up blitting pass
   {
-    const String programName("wendy/UIDrawMapped.program");
-
-    Ref<GL::Program> program = GL::Program::read(context, programName);
+    Ref<GL::Program> program = GL::Program::read(context,
+                                                 "wendy/UIDrawMapped.vs",
+                                                 "wendy/UIDrawMapped.fs");
     if (!program)
     {
-      logError("Failed to load UI blitting shader program \'%s\'",
-               programName.c_str());
+      logError("Failed to load UI blitting shader program");
       return false;
     }
 
     GL::ProgramInterface interface;
-    interface.addSampler("image", GL::Sampler::SAMPLER_2D);
+    interface.addSampler("image", GL::SAMPLER_2D);
     interface.addAttributes(Vertex2ft2fv::format);
 
     if (!interface.matches(*program, true))
     {
       logError("UI blitting shader program \'%s\' does not conform to the required interface",
-               programName.c_str());
+               program->getName().c_str());
       return false;
     }
 
@@ -777,13 +786,13 @@ bool Drawer::init()
 
 void Drawer::drawElement(const Rect& area, const Rect& mapping)
 {
-  elementPass.setUniformState("elementPos", area.position);
-  elementPass.setUniformState("elementSize", area.size);
-  elementPass.setUniformState("texPos", mapping.position);
-  elementPass.setUniformState("texSize", mapping.size);
+  elementPass.setUniformState(elementPosIndex, area.position);
+  elementPass.setUniformState(elementSizeIndex, area.size);
+  elementPass.setUniformState(texPosIndex, mapping.position);
+  elementPass.setUniformState(texSizeIndex, mapping.size);
   elementPass.apply();
 
-  pool.getContext().render(range);
+  getContext().render(range);
 }
 
 void Drawer::setDrawingState(const vec4& color, bool wireframe)

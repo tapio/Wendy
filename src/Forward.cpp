@@ -25,10 +25,15 @@
 
 #include <wendy/Config.h>
 
+#include <wendy/Core.h>
+#include <wendy/Timer.h>
+#include <wendy/Profile.h>
+
+#include <wendy/RenderPool.h>
+#include <wendy/RenderState.h>
 #include <wendy/RenderCamera.h>
 #include <wendy/RenderMaterial.h>
 #include <wendy/RenderLight.h>
-#include <wendy/RenderPool.h>
 #include <wendy/RenderScene.h>
 #include <wendy/RenderSprite.h>
 
@@ -43,30 +48,47 @@ namespace wendy
 
 ///////////////////////////////////////////////////////////////////////
 
+Config::Config(render::GeometryPool& initPool):
+  pool(&initPool)
+{
+}
+
+///////////////////////////////////////////////////////////////////////
+
 void Renderer::render(const render::Scene& scene, const render::Camera& camera)
 {
-  GL::Context& context = pool.getContext();
+  ProfileNodeCall call("forward::Renderer::render");
+
+  GL::Context& context = getContext();
   context.setCurrentSharedProgramState(state);
 
   const Recti& viewportArea = context.getViewportArea();
-
-  state->setViewMatrix(camera.getViewTransform());
-  state->setPerspectiveProjectionMatrix(camera.getFOV(),
-                                        camera.getAspectRatio(),
-                                        camera.getNearZ(),
-                                        camera.getFarZ());
   state->setViewportSize(float(viewportArea.size.x),
                          float(viewportArea.size.y));
-  state->setCameraProperties(camera.getTransform().position,
-                             camera.getFOV(),
-                             camera.getAspectRatio(),
-                             camera.getNearZ(),
-                             camera.getFarZ());
+
+  if (camera.isOrtho())
+    state->setOrthoProjectionMatrix(camera.getOrthoVolume());
+  else
+  {
+    state->setPerspectiveProjectionMatrix(camera.getFOV(),
+                                          camera.getAspectRatio(),
+                                          camera.getNearZ(),
+                                          camera.getFarZ());
+    state->setCameraProperties(camera.getTransform().position,
+                               camera.getFOV(),
+                               camera.getAspectRatio(),
+                               camera.getNearZ(),
+                               camera.getFarZ());
+  }
+
+  state->setViewMatrix(camera.getViewTransform());
 
   renderOperations(scene.getOpaqueQueue());
   renderOperations(scene.getBlendedQueue());
 
   context.setCurrentSharedProgramState(NULL);
+
+  releaseObjects();
 }
 
 SharedProgramState& Renderer::getSharedProgramState()
@@ -74,28 +96,29 @@ SharedProgramState& Renderer::getSharedProgramState()
   return *state;
 }
 
-render::GeometryPool& Renderer::getGeometryPool()
+Ref<Renderer> Renderer::create(const Config& config)
 {
-  return pool;
-}
+  if (!config.pool)
+  {
+    logError("Cannot create forward renderer without a geometry pool");
+    return NULL;
+  }
 
-Renderer* Renderer::create(render::GeometryPool& pool, const Config& config)
-{
-  Ptr<Renderer> renderer(new Renderer(pool));
+  Ptr<Renderer> renderer(new Renderer(*config.pool));
   if (!renderer->init(config))
     return NULL;
 
   return renderer.detachObject();
 }
 
-Renderer::Renderer(render::GeometryPool& initPool):
-  pool(initPool)
+Renderer::Renderer(render::GeometryPool& pool):
+  render::System(pool, render::System::FORWARD)
 {
 }
 
 bool Renderer::init(const Config& config)
 {
-  GL::Context& context = pool.getContext();
+  GL::Context& context = getContext();
 
   if (config.state)
     state = config.state;
@@ -109,18 +132,34 @@ bool Renderer::init(const Config& config)
 
 void Renderer::renderOperations(const render::Queue& queue)
 {
-  GL::Context& context = pool.getContext();
+  GL::Context& context = getContext();
   const render::SortKeyList& keys = queue.getSortKeys();
   const render::OperationList& operations = queue.getOperations();
 
-  for (render::SortKeyList::const_iterator k = keys.begin();  k != keys.end();  k++)
+  for (auto k = keys.begin();  k != keys.end();  k++)
   {
-    const render::Operation& op = operations[k->index];
+    const render::SortKey key(*k);
+    const render::Operation& op = operations[key.index];
 
     state->setModelMatrix(op.transform);
     op.state->apply();
 
     context.render(op.range);
+  }
+}
+
+void Renderer::releaseObjects()
+{
+  GL::Context& context = getContext();
+
+  context.setCurrentProgram(NULL);
+  context.setCurrentVertexBuffer(NULL);
+  context.setCurrentIndexBuffer(NULL);
+
+  for (size_t i = 0;  i < context.getTextureUnitCount();  i++)
+  {
+    context.setActiveTextureUnit(i);
+    context.setCurrentTexture(NULL);
   }
 }
 

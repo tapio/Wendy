@@ -29,6 +29,7 @@
 #include <wendy/Core.h>
 #include <wendy/Path.h>
 #include <wendy/Resource.h>
+#include <wendy/Sample.h>
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -36,34 +37,6 @@ namespace wendy
 {
   namespace AL
   {
-
-///////////////////////////////////////////////////////////////////////
-
-/*! @brief Audio sample data format enumeration.
- *  @ingroup openal
- */
-enum BufferFormat
-{
-  FORMAT_MONO8,
-  FORMAT_MONO16,
-  FORMAT_STEREO8,
-  FORMAT_STEREO16
-};
-
-///////////////////////////////////////////////////////////////////////
-
-/*! @brief Audio sample data descriptor.
- *  @ingroup openal
- */
-class BufferData
-{
-public:
-  BufferData(const void* data, size_t size, BufferFormat format, unsigned long frequency);
-  const void* data;
-  size_t size;
-  BufferFormat format;
-  unsigned long frequency;
-};
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -88,7 +61,7 @@ public:
   Time getDuration() const;
   /*! @return The format of the data in this buffer.
    */
-  BufferFormat getFormat() const;
+  SampleFormat getFormat() const;
   /*! @return The context within which this buffer was created.
    */
   Context& getContext() const;
@@ -97,34 +70,17 @@ public:
    */
   static Ref<Buffer> create(const ResourceInfo& info,
                             Context& context,
-                            const BufferData& data);
-  /*! Creates a buffer object within the specified context using data from the
-   *  file at the specified path.
-   */
-  static Ref<Buffer> read(Context& context, const String& name);
+                            const Sample& data);
+  static Ref<Buffer> read(Context& context, const String& sampleName);
 private:
   Buffer(const ResourceInfo& info, Context& context);
   Buffer(const Buffer& source);
-  bool init(const BufferData& data);
+  bool init(const Sample& data);
   Buffer& operator = (const Buffer& source);
   Context& context;
   unsigned int bufferID;
-  BufferFormat format;
+  SampleFormat format;
   Time duration;
-};
-
-///////////////////////////////////////////////////////////////////////
-
-/*! @ingroup openal
- */
-class BufferReader : public ResourceReader<Buffer>
-{
-public:
-  BufferReader(Context& context);
-  using ResourceReader::read;
-  Ref<Buffer> read(const String& name, const Path& path);
-private:
-  Context& context;
 };
 
 ///////////////////////////////////////////////////////////////////////

@@ -35,10 +35,10 @@
 #include <wendy/GLTexture.h>
 #include <wendy/GLProgram.h>
 #include <wendy/GLContext.h>
-#include <wendy/GLState.h>
 
-#include <wendy/RenderState.h>
 #include <wendy/RenderPool.h>
+#include <wendy/RenderState.h>
+#include <wendy/RenderSystem.h>
 #include <wendy/RenderFont.h>
 
 ///////////////////////////////////////////////////////////////////////
@@ -135,10 +135,10 @@ class ThemeReader : public ResourceReader<Theme>
 {
 public:
   ThemeReader(render::GeometryPool& pool);
-  using ResourceReader::read;
+  using ResourceReader<Theme>::read;
   Ref<Theme> read(const String& name, const Path& path);
 private:
-  render::GeometryPool& pool;
+  Ref<render::GeometryPool> pool;
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -148,7 +148,7 @@ private:
  *
  *  This class provides drawing for widgets.
  */
-class Drawer
+class Drawer : public RefObject
 {
 public:
   void begin();
@@ -197,26 +197,31 @@ public:
   void drawButton(const Rect& area, WidgetState state, const char* text = "");
   void drawTab(const Rect& area, WidgetState state, const char* text = "");
   const Theme& getTheme() const;
+  GL::Context& getContext();
+  render::GeometryPool& getGeometryPool();
   render::Font& getCurrentFont();
   void setCurrentFont(render::Font* newFont);
   float getCurrentEM() const;
-  render::GeometryPool& getGeometryPool() const;
-  static Drawer* create(render::GeometryPool& pool);
+  static Ref<Drawer> create(render::GeometryPool& pool);
 private:
   Drawer(render::GeometryPool& pool);
   bool init();
   void drawElement(const Rect& area, const Rect& mapping);
   void setDrawingState(const vec4& color, bool wireframe);
-  render::GeometryPool& pool;
   RectClipStackf clipAreaStack;
   Ref<GL::VertexBuffer> vertexBuffer;
   Ref<GL::IndexBuffer> indexBuffer;
   GL::PrimitiveRange range;
   Ref<Theme> theme;
+  Ref<render::GeometryPool> pool;
   Ref<render::Font> currentFont;
-  GL::RenderState drawPass;
-  GL::RenderState blitPass;
-  GL::RenderState elementPass;
+  render::Pass drawPass;
+  render::Pass blitPass;
+  render::Pass elementPass;
+  render::UniformStateIndex elementPosIndex;
+  render::UniformStateIndex elementSizeIndex;
+  render::UniformStateIndex texPosIndex;
+  render::UniformStateIndex texSizeIndex;
   Ref<render::SharedProgramState> state;
 };
 

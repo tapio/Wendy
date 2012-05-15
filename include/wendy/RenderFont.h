@@ -105,14 +105,14 @@ private:
   void getGlyphLayout(Layout& layout, const Glyph& glyph, uint8 character) const;
   typedef std::vector<Glyph> GlyphList;
   typedef std::vector<Vertex2ft2fv> VertexList;
-  GeometryPool& pool;
+  Ref<GeometryPool> pool;
   GlyphList glyphs;
   Glyph* characters[256];
   vec2 size;
   float ascender;
   float descender;
-  GL::UniformStateIndex colorIndex;
-  GL::RenderState pass;
+  UniformStateIndex colorIndex;
+  Pass pass;
   VertexList vertices;
 };
 
@@ -147,7 +147,7 @@ class FontReader : public ResourceReader<Font>
 {
 public:
   FontReader(GeometryPool& pool);
-  using ResourceReader::read;
+  using ResourceReader<Font>::read;
   Ref<Font> read(const String& name, const Path& path);
 private:
   bool extractGlyphs(FontData& data,
@@ -155,7 +155,7 @@ private:
                      const Image& image,
                      const String& characters,
                      bool fixedWidth);
-  GeometryPool& pool;
+  Ref<GeometryPool> pool;
 };
 
 ///////////////////////////////////////////////////////////////////////

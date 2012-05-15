@@ -1,7 +1,7 @@
 
-if(CMAKE_COMPILER_IS_GNUCXX)
-  add_definitions(-ansi)
-endif(CMAKE_COMPILER_IS_GNUCXX)
+if (CMAKE_COMPILER_IS_GNUCXX)
+  add_definitions(-std=c++0x)
+endif()
 
 add_definitions(-DWENDY_MEDIA_DIR=\"${WENDY_MEDIA_DIR}\")
 

@@ -31,15 +31,6 @@
 
 ///////////////////////////////////////////////////////////////////////
 
-/*! @defgroup squirrel Squirrel bindings
- *
- *  These classes provide an easy way to bind C++ to Squirrel.  The design is
- *  based on Sqrat and borrows many clever tricks from it, but it is smaller
- *  and lacks some of the features of Sqrat.
- */
-
-///////////////////////////////////////////////////////////////////////
-
 namespace wendy
 {
   namespace sq
@@ -1178,7 +1169,7 @@ public:
  *  @ingroup squirrel
  */
 template <typename T>
-class Value<SharedClass<T> >
+class Value<SharedClass<T>>
 {
 public:
   static SharedClass<T> get(HSQUIRRELVM vm, SQInteger index)

@@ -33,6 +33,8 @@ namespace wendy
 
 ///////////////////////////////////////////////////////////////////////
 
+/*! @ingroup renderer
+ */
 class Light : public RefObject
 {
 public:
@@ -63,25 +65,9 @@ private:
 
 ///////////////////////////////////////////////////////////////////////
 
-typedef Ref<Light> LightRef;
-
-///////////////////////////////////////////////////////////////////////
-
-class LightState
-{
-public:
-  void attachLight(Light& light);
-  void detachLight(Light& light);
-  void detachLights();
-  unsigned int getLightCount() const;
-  Light& getLight(unsigned int index) const;
-  const vec3& getAmbientIntensity() const;
-  void setAmbientIntensity(const vec3& newIntensity);
-private:
-  typedef std::vector<LightRef> List;
-  List lights;
-  vec3 ambient;
-};
+/*! @ingroup renderer
+ */
+typedef std::vector<Ref<Light>> LightList;
 
 ///////////////////////////////////////////////////////////////////////
 

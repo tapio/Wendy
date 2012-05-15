@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<model version="3" mesh="vase_round.obj" >
+  <material alias="vase_round" name="vase_round.material" />
+  <material alias="vase_plant" name="vase_plant.material" />
+</model>

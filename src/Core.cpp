@@ -28,12 +28,13 @@
 #include <wendy/Core.h>
 
 #include <algorithm>
+#include <exception>
+#include <sstream>
+#include <iostream>
 
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
-#include <sstream>
-#include <iostream>
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -279,7 +280,7 @@ void logError(const char* format, ...)
     std::cerr << "Error: " << message << std::endl;
   else
   {
-    for (ConsumerList::const_iterator c = consumers.begin();  c != consumers.end();  c++)
+    for (auto c = consumers.begin();  c != consumers.end();  c++)
       (*c)->onLogEntry(ERROR_LOG_ENTRY, message);
   }
 
@@ -303,7 +304,7 @@ void logWarning(const char* format, ...)
     std::cerr << "Warning: " << message << std::endl;
   else
   {
-    for (ConsumerList::const_iterator c = consumers.begin();  c != consumers.end();  c++)
+    for (auto c = consumers.begin();  c != consumers.end();  c++)
       (*c)->onLogEntry(WARNING_LOG_ENTRY, message);
   }
 
@@ -327,7 +328,7 @@ void log(const char* format, ...)
     std::cerr << message << std::endl;
   else
   {
-    for (ConsumerList::const_iterator c = consumers.begin();  c != consumers.end();  c++)
+    for (auto c = consumers.begin();  c != consumers.end();  c++)
       (*c)->onLogEntry(INFO_LOG_ENTRY, message);
   }
 
@@ -347,7 +348,7 @@ void panic(const char* format, ...)
   if (result > 0)
     std::cerr << message << std::endl;
 
-  std::exit(EXIT_FAILURE);
+  std::terminate();
 }
 
 ///////////////////////////////////////////////////////////////////////

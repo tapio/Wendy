@@ -33,17 +33,10 @@
 
 namespace wendy
 {
+  class Mesh;
+
   namespace bullet
   {
-
-///////////////////////////////////////////////////////////////////////
-
-/*! @defgroup bullet Bullet helper API
- *
- *  This module provides functions and classes that make it easier to use Wendy
- *  and Bullet together in an application.  It makes no attempt to wrap Bullet,
- *  as it already provides a good C++ API.
- */
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -65,41 +58,7 @@ btVector3 convert(const vec3& vector);
 
 /*! @ingroup bullet
  */
-btTriangleMesh* convert(const Mesh& mesh);
-
-///////////////////////////////////////////////////////////////////////
-
-class BvhMeshShape : public Resource
-{
-public:
-  BvhMeshShape(const ResourceInfo& info);
-  Ptr<btBvhTriangleMeshShape> shape;
-  Ptr<btTriangleIndexVertexArray> mesh;
-  Ptr<btOptimizedBvh> bvh;
-  Ptr<btTriangleInfoMap> info;
-};
-
-///////////////////////////////////////////////////////////////////////
-
-/*! @ingroup bullet
- */
-class BvhMeshShapeReader : public ResourceReader<BvhMeshShape>
-{
-public:
-  BvhMeshShapeReader(ResourceCache& cache);
-  using ResourceReader::read;
-  Ref<BvhMeshShape> read(const String& name, const Path& path);
-};
-
-///////////////////////////////////////////////////////////////////////
-
-/*! @ingroup bullet
- */
-class BvhMeshShapeWriter
-{
-public:
-  bool write(const Path& path, const btBvhTriangleMeshShape& shape);
-};
+btTriangleMesh* convert(const Mesh& mesh, bool removeDuplicateVertices = true);
 
 ///////////////////////////////////////////////////////////////////////
 

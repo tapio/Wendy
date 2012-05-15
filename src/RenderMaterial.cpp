@@ -32,6 +32,9 @@
 #include <wendy/GLProgram.h>
 #include <wendy/GLContext.h>
 
+#include <wendy/RenderPool.h>
+#include <wendy/RenderState.h>
+#include <wendy/RenderSystem.h>
 #include <wendy/RenderMaterial.h>
 
 #include <algorithm>
@@ -53,150 +56,64 @@ namespace
 Bimap<String, GL::CullMode> cullModeMap;
 Bimap<String, GL::BlendFactor> blendFactorMap;
 Bimap<String, GL::Function> functionMap;
-Bimap<String, Technique::Type> techniqueTypeMap;
+Bimap<String, GL::Operation> operationMap;
+Bimap<String, GL::FilterMode> filterModeMap;
+Bimap<String, GL::AddressMode> addressModeMap;
+Bimap<String, System::Type> systemTypeMap;
+Bimap<String, Phase> phaseMap;
 
-const unsigned int MATERIAL_XML_VERSION = 6;
+Bimap<GL::SamplerType, GL::TextureType> textureTypeMap;
+
+const unsigned int MATERIAL_XML_VERSION = 8;
 
 } /*namespace*/
 
 ///////////////////////////////////////////////////////////////////////
 
-Technique::Technique(Type initType):
-  type(initType),
-  quality(1.f)
+Technique& Material::getTechnique(Phase phase)
 {
+  return techniques[phase];
 }
 
-Pass& Technique::createPass()
+const Technique& Material::getTechnique(Phase phase) const
 {
-  passes.push_back(Pass());
-  return passes.back();
+  return techniques[phase];
 }
 
-void Technique::destroyPass(Pass& pass)
+void Material::setSamplers(const char* name, GL::Texture* newTexture)
 {
-  for (PassList::iterator i = passes.begin();  i != passes.end();  i++)
+  for (size_t i = 0;  i < 2;  i++)
   {
-    if (&(*i) == &pass)
+    PassList& passes = techniques[i].passes;
+    for (auto p = passes.begin();  p != passes.end();  p++)
     {
-      passes.erase(i);
-      break;
+      if (p->hasSamplerState(name))
+        p->setSamplerState(name, newTexture);
     }
   }
 }
 
-void Technique::destroyPasses()
+Ref<Material> Material::create(const ResourceInfo& info, System& system)
 {
-  passes.clear();
+  return new Material(info);
 }
 
-const PassList& Technique::getPasses() const
+Ref<Material> Material::read(System& system, const String& name)
 {
-  return passes;
+  MaterialReader reader(system);
+  return reader.read(name);
 }
-
-Technique::Type Technique::getType() const
-{
-  return type;
-}
-
-float Technique::getQuality() const
-{
-  return quality;
-}
-
-void Technique::setQuality(float newQuality)
-{
-  quality = newQuality;
-}
-
-///////////////////////////////////////////////////////////////////////
 
 Material::Material(const ResourceInfo& info):
   Resource(info)
 {
 }
 
-Technique& Material::createTechnique(Technique::Type type)
-{
-  techniques.push_back(Technique(type));
-  return techniques.back();
-}
-
-void Material::destroyTechnique(Technique& technique)
-{
-  for (TechniqueList::iterator t = techniques.begin();  t != techniques.end();  t++)
-  {
-    if (&(*t) == &technique)
-    {
-      techniques.erase(t);
-      return;
-    }
-  }
-}
-
-void Material::destroyTechniques()
-{
-  techniques.clear();
-}
-
-Technique* Material::findBestTechnique(Technique::Type type)
-{
-  Technique* best = NULL;
-
-  for (TechniqueList::iterator t = techniques.begin();  t != techniques.end();  t++)
-  {
-    if (t->getType() != type)
-      continue;
-
-    if (best && best->getQuality() > t->getQuality())
-      continue;
-
-    best = &(*t);
-  }
-
-  return best;
-}
-
-const Technique* Material::findBestTechnique(Technique::Type type) const
-{
-  const Technique* best = NULL;
-
-  for (TechniqueList::const_iterator t = techniques.begin();  t != techniques.end();  t++)
-  {
-    if (t->getType() != type)
-      continue;
-
-    if (best && best->getQuality() > t->getQuality())
-      continue;
-
-    best = &(*t);
-  }
-
-  return best;
-}
-
-TechniqueList& Material::getTechniques()
-{
-  return techniques;
-}
-
-const TechniqueList& Material::getTechniques() const
-{
-  return techniques;
-}
-
-Ref<Material> Material::read(GL::Context& context, const String& name)
-{
-  MaterialReader reader(context);
-  return reader.read(name);
-}
-
 ///////////////////////////////////////////////////////////////////////
 
-MaterialReader::MaterialReader(GL::Context& initContext):
-  ResourceReader(initContext.getCache()),
-  context(initContext)
+MaterialReader::MaterialReader(System& initSystem):
+  ResourceReader<Material>(initSystem.getCache()),
+  system(initSystem)
 {
   if (cullModeMap.isEmpty())
   {
@@ -232,11 +149,51 @@ MaterialReader::MaterialReader(GL::Context& initContext):
     functionMap["greater or equal"] = GL::ALLOW_GREATER_EQUAL;
   }
 
-  if (techniqueTypeMap.isEmpty())
+  if (operationMap.isEmpty())
   {
-    techniqueTypeMap["forward"] = Technique::FORWARD;
-    techniqueTypeMap["deferred"] = Technique::DEFERRED;
-    techniqueTypeMap["shadowmap"] = Technique::SHADOWMAP;
+    operationMap["keep"] = GL::OP_KEEP;
+    operationMap["zero"] = GL::OP_ZERO;
+    operationMap["replace"] = GL::OP_REPLACE;
+    operationMap["increase"] = GL::OP_INCREASE;
+    operationMap["decrease"] = GL::OP_DECREASE;
+    operationMap["invert"] = GL::OP_INVERT;
+    operationMap["increase wrap"] = GL::OP_INCREASE_WRAP;
+    operationMap["decrease wrap"] = GL::OP_DECREASE_WRAP;
+  }
+
+  if (addressModeMap.isEmpty())
+  {
+    addressModeMap["wrap"] = GL::ADDRESS_WRAP;
+    addressModeMap["clamp"] = GL::ADDRESS_CLAMP;
+  }
+
+  if (filterModeMap.isEmpty())
+  {
+    filterModeMap["nearest"] = GL::FILTER_NEAREST;
+    filterModeMap["bilinear"] = GL::FILTER_BILINEAR;
+    filterModeMap["trilinear"] = GL::FILTER_TRILINEAR;
+  }
+
+  if (textureTypeMap.isEmpty())
+  {
+    textureTypeMap[GL::SAMPLER_1D] = GL::TEXTURE_1D;
+    textureTypeMap[GL::SAMPLER_2D] = GL::TEXTURE_2D;
+    textureTypeMap[GL::SAMPLER_3D] = GL::TEXTURE_3D;
+    textureTypeMap[GL::SAMPLER_RECT] = GL::TEXTURE_RECT;
+    textureTypeMap[GL::SAMPLER_CUBE] = GL::TEXTURE_CUBE;
+  }
+
+  if (systemTypeMap.isEmpty())
+  {
+    systemTypeMap["forward"] = System::FORWARD;
+    systemTypeMap["deferred"] = System::DEFERRED;
+  }
+
+  if (phaseMap.isEmpty())
+  {
+    phaseMap[""] = PHASE_DEFAULT;
+    phaseMap["default"] = PHASE_DEFAULT;
+    phaseMap["shadowmap"] = PHASE_SHADOWMAP;
   }
 }
 
@@ -267,59 +224,70 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
     return NULL;
   }
 
-  Ref<Material> material = new Material(ResourceInfo(cache, name, path));
+  std::vector<bool> phases(2, false);
+
+  GL::Context& context = system.getContext();
+
+  Ref<Material> material = Material::create(ResourceInfo(cache, name, path), system);
 
   for (pugi::xml_node t = root.child("technique");  t;  t = t.next_sibling("technique"))
   {
-    const String typeName(t.attribute("type").value());
-    if (!techniqueTypeMap.hasKey(typeName))
+    const String phaseName(t.attribute("phase").value());
+    if (!phaseMap.hasKey(phaseName))
     {
-      logError("Invalid technique type \'%s\' in material \'%s\'",
+      logError("Invalid render phase \'%s\' in material \'%s\'",
+               phaseName.c_str(),
+               name.c_str());
+      return NULL;
+    }
+
+    const Phase phase = phaseMap[phaseName];
+    if (phases[phase])
+      continue;
+
+    const String typeName(t.attribute("type").value());
+    if (!systemTypeMap.hasKey(typeName))
+    {
+      logError("Invalid render system type \'%s\' in material \'%s\'",
                typeName.c_str(),
                name.c_str());
       return NULL;
     }
 
-    Technique& technique = material->createTechnique(techniqueTypeMap[typeName]);
+    const System::Type type = systemTypeMap[typeName];
+    if (system.getType() != type)
+      continue;
 
-    if (pugi::xml_attribute a = t.attribute("quality"))
-      technique.setQuality(a.as_float());
+    Technique& technique = material->getTechnique(phase);
 
     for (pugi::xml_node p = t.child("pass");  p;  p = p.next_sibling("pass"))
     {
-      Pass& pass = technique.createPass();
+      technique.passes.push_back(Pass());
+      Pass& pass = technique.passes.back();
 
       if (pugi::xml_node node = p.child("blending"))
       {
-        const String srcFactorName(node.attribute("src").value());
-        if (!srcFactorName.empty())
+        if (pugi::xml_attribute a = node.attribute("src"))
         {
-          if (blendFactorMap.hasKey(srcFactorName))
-          {
-            pass.setBlendFactors(blendFactorMap[srcFactorName],
-                                 pass.getDstFactor());
-          }
+          if (blendFactorMap.hasKey(a.value()))
+            pass.setBlendFactors(blendFactorMap[a.value()], pass.getDstFactor());
           else
           {
-            logError("Invalid blend factor \'%s\' in material \'%s\'",
-                     srcFactorName.c_str(),
+            logError("Invalid source blend factor \'%s\' in material \'%s\'",
+                     a.value(),
                      name.c_str());
             return NULL;
           }
         }
 
-        const String dstFactorName(node.attribute("dst").value());
-        if (!dstFactorName.empty())
+        if (pugi::xml_attribute a = node.attribute("dst"))
         {
-          if (blendFactorMap.hasKey(dstFactorName))
-          {
-            pass.setBlendFactors(pass.getSrcFactor(),
-                                 blendFactorMap[dstFactorName]);
-          }
+          if (blendFactorMap.hasKey(a.value()))
+            pass.setBlendFactors(pass.getSrcFactor(), blendFactorMap[a.value()]);
           else
           {
-            logError("Invalid blend factor \'%s\' in material \'%s\'",
-                     dstFactorName.c_str(),
+            logError("Invalid destination blend factor \'%s\' in material \'%s\'",
+                     a.value(),
                      name.c_str());
             return NULL;
           }
@@ -343,15 +311,78 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
         if (pugi::xml_attribute a = node.attribute("writing"))
           pass.setDepthWriting(a.as_bool());
 
-        const String functionName(node.attribute("function").value());
-        if (!functionName.empty())
+        if (pugi::xml_attribute a = node.attribute("function"))
         {
-          if (functionMap.hasKey(functionName))
-            pass.setDepthFunction(functionMap[functionName]);
+          if (functionMap.hasKey(a.value()))
+            pass.setDepthFunction(functionMap[a.value()]);
           else
           {
             logError("Invalid depth function \'%s\' in material \'%s\'",
-                     functionName.c_str(),
+                     a.value(),
+                     name.c_str());
+            return NULL;
+          }
+        }
+      }
+
+      if (pugi::xml_node node = p.child("stencil"))
+      {
+        if (pugi::xml_attribute a = node.attribute("testing"))
+          pass.setStencilTesting(a.as_bool());
+
+        if (pugi::xml_attribute a = node.attribute("mask"))
+          pass.setStencilWriteMask(a.as_uint());
+
+        if (pugi::xml_attribute a = node.attribute("reference"))
+          pass.setStencilReference(a.as_uint());
+
+        if (pugi::xml_attribute a = node.attribute("stencilFail"))
+        {
+          if (functionMap.hasKey(a.value()))
+            pass.setStencilFailOperation(operationMap[a.value()]);
+          else
+          {
+            logError("Invalid stencil fail operation \'%s\' in material \'%s\'",
+                     a.value(),
+                     name.c_str());
+            return NULL;
+          }
+        }
+
+        if (pugi::xml_attribute a = node.attribute("depthFail"))
+        {
+          if (functionMap.hasKey(a.value()))
+            pass.setDepthFailOperation(operationMap[a.value()]);
+          else
+          {
+            logError("Invalid depth fail operation \'%s\' in material \'%s\'",
+                     a.value(),
+                     name.c_str());
+            return NULL;
+          }
+        }
+
+        if (pugi::xml_attribute a = node.attribute("depthPass"))
+        {
+          if (functionMap.hasKey(a.value()))
+            pass.setDepthPassOperation(operationMap[a.value()]);
+          else
+          {
+            logError("Invalid depth pass operation \'%s\' in material \'%s\'",
+                     a.value(),
+                     name.c_str());
+            return NULL;
+          }
+        }
+
+        if (pugi::xml_attribute a = node.attribute("function"))
+        {
+          if (functionMap.hasKey(a.value()))
+            pass.setStencilFunction(functionMap[a.value()]);
+          else
+          {
+            logError("Invalid stencil function \'%s\' in material \'%s\'",
+                     a.value(),
                      name.c_str());
             return NULL;
           }
@@ -363,15 +394,14 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
         if (pugi::xml_attribute a = node.attribute("wireframe"))
           pass.setWireframe(a.as_bool());
 
-        const String cullModeName(node.attribute("cull").value());
-        if (!cullModeName.empty())
+        if (pugi::xml_attribute a = node.attribute("cull"))
         {
-          if (cullModeMap.hasKey(cullModeName))
-            pass.setCullMode(cullModeMap[cullModeName]);
+          if (cullModeMap.hasKey(a.value()))
+            pass.setCullMode(cullModeMap[a.value()]);
           else
           {
             logError("Invalid cull mode \'%s\' in material \'%s\'",
-                     cullModeName.c_str(),
+                     a.value(),
                      name.c_str());
             return NULL;
           }
@@ -389,17 +419,56 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
 
       if (pugi::xml_node node = p.child("program"))
       {
-        const String programName(node.attribute("path").value());
-        if (programName.empty())
+        const String vertexShaderName(node.attribute("vs").value());
+        if (vertexShaderName.empty())
         {
-          logError("No GLSL program in material \'%s\'", name.c_str());
+          logError("No vertex shader name in material \'%s\'", name.c_str());
           return NULL;
         }
 
-        Ref<GL::Program> program = GL::Program::read(context, programName);
+        const String fragmentShaderName(node.attribute("fs").value());
+        if (fragmentShaderName.empty())
+        {
+          logError("No fragment shader name in material \'%s\'", name.c_str());
+          return NULL;
+        }
+
+        const String geometryShaderName(node.attribute("gs").value());
+        const String tessCtrlShaderName(node.attribute("tc").value());
+        const String tessEvalShaderName(node.attribute("te").value());
+
+        GL::ShaderDefines defines;
+
+        for (pugi::xml_node d = node.child("define");  d;  d = d.next_sibling("define"))
+        {
+          const String defineName(d.attribute("name").value());
+          if (defineName.empty())
+          {
+            logWarning("GLSL program in material \'%s\' lists unnamed define",
+                       name.c_str());
+
+            continue;
+          }
+
+          String defineValue(d.attribute("value").value());
+          if (defineValue.empty())
+            defineValue = "1";
+
+          defines.push_back(std::make_pair(defineName, defineValue));
+        }
+
+        std::sort(defines.begin(), defines.end());
+
+        Ref<GL::Program> program = GL::Program::read(context,
+                                                     vertexShaderName,
+                                                     fragmentShaderName,
+                                                     geometryShaderName,
+                                                     tessCtrlShaderName,
+                                                     tessEvalShaderName,
+                                                     defines);
         if (!program)
         {
-          logError("Failed to load GLSL program in material \'%s\'",
+          logError("Failed to load GLSL program for material \'%s\'",
                    name.c_str());
           return NULL;
         }
@@ -412,39 +481,78 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
           if (samplerName.empty())
           {
             logWarning("GLSL program \'%s\' in material \'%s\' lists unnamed sampler uniform",
-                       programName.c_str(),
+                       program->getName().c_str(),
                        name.c_str());
+
             continue;
           }
 
-          if (!program->findSampler(samplerName.c_str()))
+          GL::Sampler* sampler = program->findSampler(samplerName.c_str());
+          if (!sampler)
           {
             logWarning("GLSL program \'%s\' in material \'%s\' does not have sampler uniform \'%s\'",
-                       programName.c_str(),
+                       program->getName().c_str(),
                        name.c_str(),
                        samplerName.c_str());
+
             continue;
           }
 
-          const String textureName(s.attribute("texture").value());
-          if (textureName.empty())
+          GL::TextureParams params(textureTypeMap[sampler->getType()]);
+
+          if (pugi::xml_attribute a = s.attribute("mipmapped"))
+            params.mipmapped = a.as_bool();
+
+          if (pugi::xml_attribute a = s.attribute("sRGB"))
+            params.sRGB = a.as_bool();
+
+          Ref<GL::Texture> texture;
+
+          if (pugi::xml_attribute a = s.attribute("image"))
+            texture = GL::Texture::read(context, params, a.value());
+          else if (pugi::xml_attribute a = s.attribute("texture"))
+            texture = cache.find<GL::Texture>(a.value());
+          else
           {
-            logError("Texture path missing for sampler \'%s\' of GLSL program \'%s\' in material \'%s\'",
+            logError("No texture specified for sampler \'%s\' of GLSL program \'%s\' in material \'%s\'",
                      samplerName.c_str(),
-                     programName.c_str(),
+                     program->getName().c_str(),
                      name.c_str());
             return NULL;
           }
 
-          Ref<GL::Texture> texture = GL::Texture::read(context, textureName);
           if (!texture)
           {
-            logError("Failed to find texture \'%s\' for sampler \'%s\' of GLSL program \'%s\' in material \'%s\'",
-                     textureName.c_str(),
+            logError("Failed to find texture for sampler \'%s\' of GLSL program \'%s\' in material \'%s\'",
                      samplerName.c_str(),
-                     programName.c_str(),
+                     program->getName().c_str(),
                      name.c_str());
             return NULL;
+          }
+
+          if (pugi::xml_attribute a = root.attribute("anisotropy"))
+            texture->setMaxAnisotropy(a.as_float());
+
+          if (pugi::xml_attribute a = s.attribute("filter"))
+          {
+            if (filterModeMap.hasKey(a.value()))
+              texture->setFilterMode(filterModeMap[a.value()]);
+            else
+            {
+              logError("Invalid filter mode name \'%s\'", a.value());
+              return NULL;
+            }
+          }
+
+          if (pugi::xml_attribute a = s.attribute("address"))
+          {
+            if (addressModeMap.hasKey(a.value()))
+              texture->setAddressMode(addressModeMap[a.value()]);
+            else
+            {
+              logError("Invalid address mode name \'%s\'", a.value());
+              return NULL;
+            }
           }
 
           pass.setSamplerState(samplerName.c_str(), texture);
@@ -456,8 +564,9 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
           if (uniformName.empty())
           {
             logWarning("GLSL program \'%s\' in material \'%s\' lists unnamed uniform",
-                       programName.c_str(),
+                       program->getName().c_str(),
                        name.c_str());
+
             continue;
           }
 
@@ -465,9 +574,10 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
           if (!uniform)
           {
             logWarning("GLSL program \'%s\' in material \'%s\' does not have uniform \'%s\'",
-                       programName.c_str(),
+                       program->getName().c_str(),
                        name.c_str(),
                        uniformName.c_str());
+
             continue;
           }
 
@@ -476,207 +586,43 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
           {
             logError("Missing value for uniform \'%s\' of GLSL program \'%s\' in material \'%s\'",
                      uniformName.c_str(),
-                     programName.c_str(),
+                     program->getName().c_str(),
                      name.c_str());
             return NULL;
           }
 
           switch (uniform->getType())
           {
-            case GL::Uniform::FLOAT:
+            case GL::UNIFORM_FLOAT:
               pass.setUniformState(uniformName.c_str(), attribute.as_float());
               break;
-            case GL::Uniform::VEC2:
+            case GL::UNIFORM_VEC2:
               pass.setUniformState(uniformName.c_str(), vec2Cast(attribute.value()));
               break;
-            case GL::Uniform::VEC3:
+            case GL::UNIFORM_VEC3:
               pass.setUniformState(uniformName.c_str(), vec3Cast(attribute.value()));
               break;
-            case GL::Uniform::VEC4:
+            case GL::UNIFORM_VEC4:
               pass.setUniformState(uniformName.c_str(), vec4Cast(attribute.value()));
               break;
-            case GL::Uniform::MAT2:
+            case GL::UNIFORM_MAT2:
               pass.setUniformState(uniformName.c_str(), mat2Cast(attribute.value()));
               break;
-            case GL::Uniform::MAT3:
+            case GL::UNIFORM_MAT3:
               pass.setUniformState(uniformName.c_str(), mat3Cast(attribute.value()));
               break;
-            case GL::Uniform::MAT4:
+            case GL::UNIFORM_MAT4:
               pass.setUniformState(uniformName.c_str(), mat4Cast(attribute.value()));
               break;
           }
         }
       }
+
+      phases[phase] = true;
     }
   }
 
   return material;
-}
-
-///////////////////////////////////////////////////////////////////////
-
-bool MaterialWriter::write(const Path& path, const Material& material)
-{
-  pugi::xml_document document;
-
-  pugi::xml_node root = document.append_child("material");
-  root.append_attribute("version") = MATERIAL_XML_VERSION;
-
-  GL::RenderState defaults;
-
-  const TechniqueList& techniques = material.getTechniques();
-
-  for (TechniqueList::const_iterator t = techniques.begin();  t != techniques.end();  t++)
-  {
-    pugi::xml_node tn = root.append_child("technique");
-    tn.append_attribute("type") = techniqueTypeMap[t->getType()].c_str();
-    tn.append_attribute("quality") = t->getQuality();
-
-    const PassList& passes = t->getPasses();
-
-    for (PassList::const_iterator p = passes.begin();  p != passes.end();  p++)
-    {
-      pugi::xml_node pn = tn.append_child("pass");
-
-      if (p->getSrcFactor() != defaults.getSrcFactor() ||
-          p->getDstFactor() != defaults.getDstFactor())
-      {
-        pugi::xml_node bn = pn.append_child("blending");
-        bn.append_attribute("src") = blendFactorMap[p->getSrcFactor()].c_str();
-        bn.append_attribute("dst") = blendFactorMap[p->getDstFactor()].c_str();
-      }
-
-      if (p->isColorWriting() != defaults.isColorWriting() ||
-          p->isMultisampling() != defaults.isMultisampling())
-      {
-        pugi::xml_node cn = pn.append_child("color");
-        cn.append_attribute("writing") = p->isColorWriting();
-        cn.append_attribute("multisampling") = p->isMultisampling();
-      }
-
-      if (p->isDepthTesting() != defaults.isDepthTesting() ||
-          p->isDepthWriting() != defaults.isDepthWriting())
-      {
-        pugi::xml_node dn = pn.append_child("depth");
-        dn.append_attribute("testing") = p->isDepthTesting();
-        dn.append_attribute("writing") = p->isDepthWriting();
-        dn.append_attribute("function") = functionMap[p->getDepthFunction()].c_str();
-      }
-
-      if (p->isWireframe() != defaults.isWireframe() ||
-          p->getCullMode() != defaults.getCullMode())
-      {
-        pugi::xml_node pn = pn.append_child("polygon");
-        pn.append_attribute("wireframe") = p->isWireframe();
-        pn.append_attribute("cull") = cullModeMap[p->getCullMode()].c_str();
-      }
-
-      if (p->isLineSmoothing() != defaults.isLineSmoothing() ||
-          p->getLineWidth() != defaults.getLineWidth())
-      {
-        pugi::xml_node ln = pn.append_child("line");
-        ln.append_attribute("smoothing") = p->isLineSmoothing();
-        ln.append_attribute("width") = p->getLineWidth();
-      }
-
-      if (GL::Program* program = p->getProgram())
-      {
-        pugi::xml_node fn = pn.append_child("program");
-        fn.append_attribute("path") = program->getName().c_str();
-
-        for (unsigned int i = 0;  i < program->getSamplerCount();  i++)
-        {
-          const GL::Sampler& sampler = program->getSampler(i);
-
-          Ref<GL::Texture> texture = p->getSamplerState(sampler.getName().c_str());
-          if (!texture)
-            continue;
-
-          pugi::xml_node sn = fn.append_child("sampler");
-          sn.append_attribute("name") = sampler.getName().c_str();
-          sn.append_attribute("texture") = texture->getName().c_str();
-        }
-
-        for (unsigned int i = 0;  i < program->getUniformCount();  i++)
-        {
-          const GL::Uniform& uniform = program->getUniform(i);
-
-          pugi::xml_node un = fn.append_child("uniform");
-          un.append_attribute("name") = uniform.getName().c_str();
-
-          switch (uniform.getType())
-          {
-            case GL::Uniform::FLOAT:
-            {
-              float value;
-              p->getUniformState(uniform.getName().c_str(), value);
-              un.append_attribute("value") = value;
-              break;
-            }
-
-            case GL::Uniform::VEC2:
-            {
-              vec2 value;
-              p->getUniformState(uniform.getName().c_str(), value);
-              un.append_attribute("value") = stringCast(value).c_str();
-              break;
-            }
-
-            case GL::Uniform::VEC3:
-            {
-              vec3 value;
-              p->getUniformState(uniform.getName().c_str(), value);
-              un.append_attribute("value") = stringCast(value).c_str();
-              break;
-            }
-
-            case GL::Uniform::VEC4:
-            {
-              vec4 value;
-              p->getUniformState(uniform.getName().c_str(), value);
-              un.append_attribute("value") = stringCast(value).c_str();
-              break;
-            }
-
-            case GL::Uniform::MAT2:
-            {
-              mat2 value;
-              p->getUniformState(uniform.getName().c_str(), value);
-              un.append_attribute("value") = stringCast(value).c_str();
-              break;
-            }
-
-            case GL::Uniform::MAT3:
-            {
-              mat3 value;
-              p->getUniformState(uniform.getName().c_str(), value);
-              un.append_attribute("value") = stringCast(value).c_str();
-              break;
-            }
-
-            case GL::Uniform::MAT4:
-            {
-              mat4 value;
-              p->getUniformState(uniform.getName().c_str(), value);
-              un.append_attribute("value") = stringCast(value).c_str();
-              break;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  std::ofstream stream(path.asString().c_str());
-  if (!stream)
-  {
-    logError("Failed to create material file \'%s\'",
-             path.asString().c_str());
-    return false;
-  }
-
-  document.save(stream);
-  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////

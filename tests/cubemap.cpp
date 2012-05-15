@@ -21,9 +21,9 @@ private:
   void onContextResized(unsigned int width, unsigned int height);
   ResourceCache cache;
   input::MayaCamera controller;
-  Ptr<render::GeometryPool> pool;
+  Ref<render::GeometryPool> pool;
   Ref<render::Camera> camera;
-  Ptr<forward::Renderer> renderer;
+  Ref<forward::Renderer> renderer;
   scene::Graph graph;
   scene::CameraNode* cameraNode;
 };
@@ -32,9 +32,10 @@ Test::~Test()
 {
   graph.destroyRootNodes();
 
+  renderer = NULL;
   pool = NULL;
 
-  input::Context::destroySingleton();
+  input::Window::destroySingleton();
   GL::Context::destroySingleton();
 }
 
@@ -53,14 +54,14 @@ bool Test::init()
   GL::Context* context = GL::Context::getSingleton();
   context->getResizedSignal().connect(*this, &Test::onContextResized);
 
-  if (!input::Context::createSingleton(*context))
+  if (!input::Window::createSingleton(*context))
     return false;
 
-  input::Context::getSingleton()->setTarget(&controller);
+  input::Window::getSingleton()->setTarget(&controller);
 
-  pool = new render::GeometryPool(*context);
+  pool = render::GeometryPool::create(*context);
 
-  renderer = forward::Renderer::create(*pool, forward::Config());
+  renderer = forward::Renderer::create(forward::Config(*pool));
   if (!renderer)
   {
     logError("Failed to create forward renderer");
@@ -69,7 +70,7 @@ bool Test::init()
 
   const String modelName("cube_cubemapped.model");
 
-  Ref<render::Model> model = render::Model::read(*context, modelName);
+  Ref<render::Model> model = render::Model::read(*renderer, modelName);
   if (!model)
   {
     logError("Failed to load model \'%s\'", modelName.c_str());
@@ -107,7 +108,7 @@ bool Test::init()
 
 void Test::run()
 {
-  render::Scene scene(*pool, render::Technique::FORWARD);
+  render::Scene scene(*pool);
   GL::Context& context = pool->getContext();
 
   do

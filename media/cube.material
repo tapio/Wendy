@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1" ?>
-<material version="6">
-  <technique type="deferred" quality="1">
+<material version="8">
+  <technique type="deferred">
     <pass>
-      <program path="wendy/DeferredSolid.program">
+      <program vs="wendy/DeferredSolid.vs" fs="wendy/DeferredSolid.fs">
         <uniform name="color" value="1 1 1" />
         <uniform name="mask" value="1" />
       </program>
