@@ -28,8 +28,6 @@ option(WENDY_INCLUDE_UI_SYSTEM "Include the UI library" ON)
 option(WENDY_INCLUDE_DEBUG_UI "Include the debug interface" ON)
 option(WENDY_INCLUDE_SQUIRREL "Include the Squirrel bindings" ON)
 option(WENDY_INCLUDE_BULLET "Include the Bullet library" ON)
-option(WENDY_BUILD_EXAMPLES "Build the bundled example programs" OFF)
-option(WENDY_BUILD_TESTS "Build the bundled test programs" OFF)
 option(WENDY_BUILD_DOCUMENTATION "Build the Doxygen documentation" OFF)
 
 include(TestBigEndian)

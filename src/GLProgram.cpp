@@ -359,7 +359,7 @@ bool Shader::init(const String& text, const ShaderDefines& defines)
     shader += "\n";
   }
 
-  for (ShaderDefines::const_iterator d = defines.begin();  d != defines.end();  d++)
+  for (auto d = defines.begin();  d != defines.end();  d++)
   {
     shader += "#define ";
     shader += d->first;
