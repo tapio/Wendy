@@ -1,10 +1,11 @@
 //========================================================================
-// GLFW - An OpenGL framework
-// Platform:    Cocoa/NSOpenGL
-// API Version: 2.7
+// GLFW - An OpenGL library
+// Platform:    X11 (Unix)
+// API version: 3.0
 // WWW:         http://www.glfw.org/
 //------------------------------------------------------------------------
-// Copyright (c) 2009-2010 Camilla Berglund <elmindreda@elmindreda.org>
+// Copyright (c) 2002-2006 Marcus Geelnard
+// Copyright (c) 2006-2010 Camilla Berglund <elmindreda@elmindreda.org>
 //
 // This software is provided 'as-is', without any express or implied
 // warranty. In no event will the authors be held liable for any damages
@@ -29,35 +30,36 @@
 
 #include "internal.h"
 
-//************************************************************************
-//****               Platform implementation functions                ****
-//************************************************************************
+
+//////////////////////////////////////////////////////////////////////////
+//////                       GLFW platform API                      //////
+//////////////////////////////////////////////////////////////////////////
 
 //========================================================================
-// Check if an OpenGL extension is available at runtime
+// Enable system keys
 //========================================================================
 
-int _glfwPlatformExtensionSupported( const char *extension )
+void _glfwPlatformEnableSystemKeys(_GLFWwindow* window)
 {
-    // There are no AGL, CGL or NSGL extensions.
-    return GL_FALSE;
+    if (window->X11.keyboardGrabbed)
+    {
+        XUngrabKeyboard(_glfwLibrary.X11.display, CurrentTime);
+        window->X11.keyboardGrabbed = GL_FALSE;
+    }
 }
 
+
 //========================================================================
-// Get the function pointer to an OpenGL function
+// Disable system keys
 //========================================================================
 
-void * _glfwPlatformGetProcAddress( const char *procname )
+void _glfwPlatformDisableSystemKeys(_GLFWwindow* window)
 {
-    CFStringRef symbolName = CFStringCreateWithCString( kCFAllocatorDefault,
-                                                        procname,
-                                                        kCFStringEncodingASCII );
-
-    void *symbol = CFBundleGetFunctionPointerForName( _glfwLibrary.OpenGLFramework,
-                                                      symbolName );
-
-    CFRelease( symbolName );
-
-    return symbol;
+    if (XGrabKeyboard(_glfwLibrary.X11.display, window->X11.handle,
+                      True, GrabModeAsync, GrabModeAsync, CurrentTime)
+        == GrabSuccess)
+    {
+        window->X11.keyboardGrabbed = GL_TRUE;
+    }
 }
 

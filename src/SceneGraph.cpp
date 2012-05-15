@@ -25,12 +25,17 @@
 
 #include <wendy/Config.h>
 
+#include <wendy/Core.h>
+#include <wendy/Timer.h>
+#include <wendy/Profile.h>
+
 #include <wendy/GLBuffer.h>
 #include <wendy/GLTexture.h>
 #include <wendy/GLProgram.h>
 #include <wendy/GLContext.h>
-#include <wendy/GLState.h>
 
+#include <wendy/RenderPool.h>
+#include <wendy/RenderState.h>
 #include <wendy/RenderCamera.h>
 #include <wendy/RenderMaterial.h>
 #include <wendy/RenderLight.h>
@@ -194,10 +199,7 @@ const Transform3& Node::getWorldTransform() const
   if (dirtyWorld)
   {
     if (parent)
-    {
-      const Transform3& parentWorld = parent->getWorldTransform();
-      world = parentWorld * local;
-    }
+      world = parent->getWorldTransform() * local;
     else
       world = local;
 
@@ -226,7 +228,7 @@ const Sphere& Node::getTotalBounds() const
 
     const List& children = getChildren();
 
-    for (List::const_iterator c = children.begin();  c != children.end();  c++)
+    for (auto c = children.begin();  c != children.end();  c++)
     {
       Sphere childBounds = (*c)->getTotalBounds();
       childBounds.transformBy((*c)->getLocalTransform());
@@ -252,7 +254,7 @@ void Node::enqueue(render::Scene& scene, const render::Camera& camera) const
 
   const List& children = getChildren();
 
-  for (List::const_iterator c = children.begin();  c != children.end();  c++)
+  for (auto c = children.begin();  c != children.end();  c++)
   {
     Sphere worldBounds = (*c)->getTotalBounds();
     worldBounds.transformBy((*c)->getWorldTransform());
@@ -301,7 +303,7 @@ void Node::setGraph(Graph* newGraph)
     updated.push_back(this);
   }
 
-  for (List::const_iterator c = children.begin();  c != children.end();  c++)
+  for (auto c = children.begin();  c != children.end();  c++)
     (*c)->setGraph(graph);
 }
 
@@ -319,9 +321,11 @@ void Graph::update()
 
 void Graph::enqueue(render::Scene& scene, const render::Camera& camera) const
 {
+  ProfileNodeCall call("scene::Graph::enqueue");
+
   const Frustum& frustum = camera.getFrustum();
 
-  for (Node::List::const_iterator r = roots.begin();  r != roots.end();  r++)
+  for (auto r = roots.begin();  r != roots.end();  r++)
   {
     Sphere worldBounds = (*r)->getTotalBounds();
     worldBounds.transformBy((*r)->getWorldTransform());
@@ -333,7 +337,7 @@ void Graph::enqueue(render::Scene& scene, const render::Camera& camera) const
 
 void Graph::query(const Sphere& sphere, Node::List& nodes) const
 {
-  for (Node::List::const_iterator r = roots.begin();  r != roots.end();  r++)
+  for (auto r = roots.begin();  r != roots.end();  r++)
   {
     Sphere worldBounds = (*r)->getTotalBounds();
     worldBounds.transformBy((*r)->getWorldTransform());
@@ -345,7 +349,7 @@ void Graph::query(const Sphere& sphere, Node::List& nodes) const
 
 void Graph::query(const Frustum& frustum, Node::List& nodes) const
 {
-  for (Node::List::const_iterator r = roots.begin();  r != roots.end();  r++)
+  for (auto r = roots.begin();  r != roots.end();  r++)
   {
     Sphere worldBounds = (*r)->getTotalBounds();
     worldBounds.transformBy((*r)->getWorldTransform());

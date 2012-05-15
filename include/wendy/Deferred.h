@@ -113,9 +113,9 @@ private:
   Ref<GL::Texture> depthTexture;
   Ref<GL::Texture> colorTexture;
   Ref<GL::Texture> normalTexture;
-  GL::RenderState dirLightPass;
-  GL::RenderState pointLightPass;
-  GL::RenderState ambientLightPass;
+  render::Pass dirLightPass;
+  render::Pass pointLightPass;
+  render::Pass ambientLightPass;
   Ref<SharedProgramState> state;
 };
 

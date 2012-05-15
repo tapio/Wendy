@@ -25,6 +25,10 @@
 
 #include <wendy/Config.h>
 
+#include <wendy/Core.h>
+#include <wendy/Timer.h>
+#include <wendy/Profile.h>
+
 #include <wendy/GLBuffer.h>
 #include <wendy/GLTexture.h>
 #include <wendy/GLProgram.h>
@@ -36,7 +40,7 @@
 #include <internal/GLHelper.h>
 
 #define GLFW_NO_GLU
-#include <GL/glfw.h>
+#include <GL/glfw3.h>
 
 #include <algorithm>
 
@@ -109,6 +113,11 @@ const char* getMessageSeverityName(GLenum severity)
   return "UNKNOWN";
 }
 
+void errorCallback(int error, const char* message)
+{
+  logError("GLFW reported error: %s", message);
+}
+
 void APIENTRY debugCallback(GLenum source,
                             GLenum type,
                             GLuint id,
@@ -137,44 +146,24 @@ void APIENTRY debugCallback(GLenum source,
   }
 }
 
-GLint getIntegerParameter(GLenum parameter)
-{
-  GLint value;
-  glGetIntegerv(parameter, &value);
-  return value;
-}
-
-GLfloat getFloatParameter(GLenum parameter)
-{
-  GLfloat value;
-  glGetFloatv(parameter, &value);
-  return value;
-}
-
 const char* getFramebufferStatusMessage(GLenum status)
 {
   switch (status)
   {
-    case GL_FRAMEBUFFER_COMPLETE_EXT:
+    case GL_FRAMEBUFFER_COMPLETE:
       return "Framebuffer is complete";
-    case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT_EXT:
+    case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
       return "Incomplete framebuffer attachment";
-    case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT_EXT:
+    case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
       return "Incomplete or missing framebuffer attachment";
-    case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS_EXT:
-      return "Incomplete framebuffer dimensions";
-    case GL_FRAMEBUFFER_INCOMPLETE_FORMATS_EXT:
-      return "Incomplete framebuffer formats";
-    case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER_EXT:
+    case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER:
       return "Incomplete framebuffer draw buffer";
-    case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER_EXT:
+    case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER:
       return "Incomplete framebuffer read buffer";
-    case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
+    case GL_FRAMEBUFFER_UNSUPPORTED:
       return "Framebuffer configuration is unsupported";
-    case GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS_ARB:
+    case GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS:
       return "Framebuffer layer targets incomplete";
-    case GL_FRAMEBUFFER_INCOMPLETE_LAYER_COUNT_ARB:
-      return "Framebuffer layer counts incomplete";
   }
 
   logError("Unknown OpenGL framebuffer status %u", status);
@@ -202,6 +191,119 @@ GLenum convertToGL(PrimitiveType type)
   }
 
   panic("Invalid primitive type %u", type);
+}
+
+GLenum convertToGL(CullMode mode)
+{
+  switch (mode)
+  {
+    case CULL_NONE:
+      break;
+    case CULL_FRONT:
+      return GL_FRONT;
+    case CULL_BACK:
+      return GL_BACK;
+    case CULL_BOTH:
+      return GL_FRONT_AND_BACK;
+  }
+
+  panic("Invalid cull mode %u", mode);
+}
+
+CullMode invertCullMode(CullMode mode)
+{
+  switch (mode)
+  {
+    case CULL_NONE:
+      return CULL_BOTH;
+    case CULL_FRONT:
+      return CULL_BACK;
+    case CULL_BACK:
+      return CULL_FRONT;
+    case CULL_BOTH:
+      return CULL_NONE;
+  }
+
+  panic("Invalid cull mode %u", mode);
+}
+
+GLenum convertToGL(BlendFactor factor)
+{
+  switch (factor)
+  {
+    case BLEND_ZERO:
+      return GL_ZERO;
+    case BLEND_ONE:
+      return GL_ONE;
+    case BLEND_SRC_COLOR:
+      return GL_SRC_COLOR;
+    case BLEND_DST_COLOR:
+      return GL_DST_COLOR;
+    case BLEND_SRC_ALPHA:
+      return GL_SRC_ALPHA;
+    case BLEND_DST_ALPHA:
+      return GL_DST_ALPHA;
+    case BLEND_ONE_MINUS_SRC_COLOR:
+      return GL_ONE_MINUS_SRC_COLOR;
+    case BLEND_ONE_MINUS_DST_COLOR:
+      return GL_ONE_MINUS_DST_COLOR;
+    case BLEND_ONE_MINUS_SRC_ALPHA:
+      return GL_ONE_MINUS_SRC_ALPHA;
+    case BLEND_ONE_MINUS_DST_ALPHA:
+      return GL_ONE_MINUS_DST_ALPHA;
+  }
+
+  panic("Invalid blend factor %u", factor);
+}
+
+GLenum convertToGL(Function function)
+{
+  switch (function)
+  {
+    case ALLOW_NEVER:
+      return GL_NEVER;
+    case ALLOW_ALWAYS:
+      return GL_ALWAYS;
+    case ALLOW_EQUAL:
+      return GL_EQUAL;
+    case ALLOW_NOT_EQUAL:
+      return GL_NOTEQUAL;
+    case ALLOW_LESSER:
+      return GL_LESS;
+    case ALLOW_LESSER_EQUAL:
+      return GL_LEQUAL;
+    case ALLOW_GREATER:
+      return GL_GREATER;
+    case ALLOW_GREATER_EQUAL:
+      return GL_GEQUAL;
+  }
+
+  panic("Invalid comparison function %u", function);
+}
+
+GLenum convertToGL(Operation operation)
+{
+  switch (operation)
+  {
+    case OP_KEEP:
+      return GL_KEEP;
+    case OP_ZERO:
+      return GL_ZERO;
+    case OP_REPLACE:
+      return GL_REPLACE;
+    case OP_INCREASE:
+      return GL_INCR;
+    case OP_DECREASE:
+      return GL_DECR;
+    case OP_INVERT:
+      return GL_INVERT;
+    case OP_INCREASE_WRAP:
+      return GL_INCR_WRAP;
+    case OP_DECREASE_WRAP:
+      return GL_DECR_WRAP;
+  }
+
+  panic("Invalid stencil operation %u", operation);
 }
 
 bool isCompatible(const Attribute& attribute, const VertexComponent& component)
@@ -246,6 +348,14 @@ bool isCompatible(const Attribute& attribute, const VertexComponent& component)
   }
 
   return false;
+}
+
+void setBooleanState(unsigned int state, bool value)
+{
+  if (value)
+    glEnable(state);
+  else
+    glDisable(state);
 }
 
 } /*namespace (and Gandalf)*/
@@ -338,48 +448,50 @@ ContextConfig::ContextConfig(unsigned int initColorBits,
 
 ///////////////////////////////////////////////////////////////////////
 
+RenderState::RenderState():
+  depthTesting(true),
+  depthWriting(true),
+  colorWriting(true),
+  stencilTesting(false),
+  wireframe(false),
+  lineSmoothing(false),
+  multisampling(true),
+  lineWidth(1.f),
+  cullMode(CULL_BACK),
+  srcFactor(BLEND_ONE),
+  dstFactor(BLEND_ZERO),
+  depthFunction(ALLOW_LESSER),
+  stencilFunction(ALLOW_ALWAYS),
+  stencilRef(0),
+  stencilMask(~0u),
+  stencilFailOp(OP_KEEP),
+  depthFailOp(OP_KEEP),
+  depthPassOp(OP_KEEP)
+{
+}
+
+///////////////////////////////////////////////////////////////////////
+
 Limits::Limits(Context& context)
 {
-  maxColorAttachments = getIntegerParameter(GL_MAX_COLOR_ATTACHMENTS_EXT);
-  maxDrawBuffers = getIntegerParameter(GL_MAX_DRAW_BUFFERS);
-  maxVertexTextureImageUnits = getIntegerParameter(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS);
-  maxFragmentTextureImageUnits = getIntegerParameter(GL_MAX_TEXTURE_IMAGE_UNITS);
-  maxCombinedTextureImageUnits = getIntegerParameter(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS);
-  maxTextureSize = getIntegerParameter(GL_MAX_TEXTURE_SIZE);
-  maxTexture3DSize = getIntegerParameter(GL_MAX_3D_TEXTURE_SIZE);
-  maxTextureCubeSize = getIntegerParameter(GL_MAX_CUBE_MAP_TEXTURE_SIZE);
-  maxTextureRectangleSize = getIntegerParameter(GL_MAX_RECTANGLE_TEXTURE_SIZE_ARB);
-  maxTextureCoords = getIntegerParameter(GL_MAX_TEXTURE_COORDS);
-  maxVertexAttributes = getIntegerParameter(GL_MAX_VERTEX_ATTRIBS);
+  maxColorAttachments = getInteger(GL_MAX_COLOR_ATTACHMENTS);
+  maxDrawBuffers = getInteger(GL_MAX_DRAW_BUFFERS);
+  maxVertexTextureImageUnits = getInteger(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS);
+  maxFragmentTextureImageUnits = getInteger(GL_MAX_TEXTURE_IMAGE_UNITS);
+  maxCombinedTextureImageUnits = getInteger(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS);
+  maxTextureSize = getInteger(GL_MAX_TEXTURE_SIZE);
+  maxTexture3DSize = getInteger(GL_MAX_3D_TEXTURE_SIZE);
+  maxTextureCubeSize = getInteger(GL_MAX_CUBE_MAP_TEXTURE_SIZE);
+  maxTextureRectangleSize = getInteger(GL_MAX_RECTANGLE_TEXTURE_SIZE);
+  maxTextureCoords = getInteger(GL_MAX_TEXTURE_COORDS);
+  maxVertexAttributes = getInteger(GL_MAX_VERTEX_ATTRIBS);
 
   Version version = context.getVersion();
 
   if (GLEW_EXT_texture_filter_anisotropic)
-    maxTextureAnisotropy = getFloatParameter(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+    maxTextureAnisotropy = getFloat(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT);
   else
     maxTextureAnisotropy = 1.f;
-
-  if (GLEW_ARB_geometry_shader4 || version > Version(3,1))
-  {
-    maxGeometryOutputVertices = getIntegerParameter(GL_MAX_GEOMETRY_OUTPUT_VERTICES);
-    maxGeometryTextureImageUnits = getIntegerParameter(GL_MAX_GEOMETRY_TEXTURE_IMAGE_UNITS);
-  }
-  else
-  {
-    maxGeometryOutputVertices = 0;
-    maxGeometryTextureImageUnits = 0;
-  }
-
-  if (GLEW_ARB_tessellation_shader || version > Version(3,3))
-  {
-    maxTessControlTextureImageUnits = getIntegerParameter(GL_MAX_TESS_CONTROL_TEXTURE_IMAGE_UNITS);
-    maxTessEvaluationTextureImageUnits = getIntegerParameter(GL_MAX_TESS_EVALUATION_TEXTURE_IMAGE_UNITS);
-  }
-  else
-  {
-    maxTessControlTextureImageUnits = 0;
-    maxTessEvaluationTextureImageUnits = 0;
-  }
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -413,7 +525,7 @@ void Stats::addFrame()
     frames.front().duration = timer.getDeltaTime();
 
     // Calculate frame rate
-    for (FrameQueue::const_iterator f = frames.begin();  f != frames.end();  f++)
+    for (auto f = frames.begin();  f != frames.end();  f++)
       frameRate += float(f->duration);
 
     frameRate = float(frames.size()) / frameRate;
@@ -530,7 +642,7 @@ unsigned int Stats::getFrameCount() const
   return frameCount;
 }
 
-const Stats::Frame& Stats::getFrame() const
+const Stats::Frame& Stats::getCurrentFrame() const
 {
   return frames.front();
 }
@@ -595,25 +707,35 @@ Stats::Frame::Frame():
 
 ///////////////////////////////////////////////////////////////////////
 
-SharedSampler::SharedSampler(const char* initName,
-                             SamplerType initType,
-                             int initID):
-  name(initName),
-  type(initType),
-  ID(initID)
+class Context::SharedSampler
 {
-}
+public:
+  SharedSampler(const char* name, SamplerType type, int ID):
+    name(name),
+    type(type),
+    ID(ID)
+  {
+  }
+  String name;
+  SamplerType type;
+  int ID;
+};
 
 ///////////////////////////////////////////////////////////////////////
 
-SharedUniform::SharedUniform(const char* initName,
-                             UniformType initType,
-                             int initID):
-  name(initName),
-  type(initType),
-  ID(initID)
+class Context::SharedUniform
 {
-}
+public:
+  SharedUniform(const char* name, UniformType type, int ID):
+    name(name),
+    type(type),
+    ID(ID)
+  {
+  }
+  String name;
+  UniformType type;
+  int ID;
+};
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -632,57 +754,76 @@ Context::~Context()
     setCurrentTexture(NULL);
   }
 
-  glfwCloseWindow();
-
-  instance = NULL;
+  if (handle)
+  {
+    glfwCloseWindow(handle);
+    handle = NULL;
+  }
 }
 
 void Context::clearColorBuffer(const vec4& color)
 {
-  glPushAttrib(GL_COLOR_BUFFER_BIT);
-  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  const RenderState previousState = currentState;
+
+  RenderState clearState = currentState;
+  clearState.colorWriting = true;
+  applyState(clearState);
+
   glClearColor(color.r, color.g, color.b, color.a);
   glClear(GL_COLOR_BUFFER_BIT);
-  glPopAttrib();
 
 #if WENDY_DEBUG
   checkGL("Error during color buffer clearing");
 #endif
+
+  applyState(previousState);
 }
 
 void Context::clearDepthBuffer(float depth)
 {
-  glPushAttrib(GL_DEPTH_BUFFER_BIT);
-  glDepthMask(GL_TRUE);
+  const RenderState previousState = currentState;
+
+  RenderState clearState = currentState;
+  clearState.depthWriting = true;
+  applyState(clearState);
+
   glClearDepth(depth);
   glClear(GL_DEPTH_BUFFER_BIT);
-  glPopAttrib();
 
 #if WENDY_DEBUG
-  checkGL("Error during depth buffer clearing");
+  checkGL("Error during color buffer clearing");
 #endif
+
+  applyState(previousState);
 }
 
 void Context::clearStencilBuffer(unsigned int value)
 {
-  glPushAttrib(GL_STENCIL_BUFFER_BIT);
-  glStencilMask(GL_TRUE);
+  const RenderState previousState = currentState;
+
+  RenderState clearState = currentState;
+  clearState.stencilMask = ~0u;
+  applyState(clearState);
+
   glClearStencil(value);
   glClear(GL_STENCIL_BUFFER_BIT);
-  glPopAttrib();
 
 #if WENDY_DEBUG
-  checkGL("Error during stencil buffer clearing");
+  checkGL("Error during color buffer clearing");
 #endif
+
+  applyState(previousState);
 }
 
 void Context::clearBuffers(const vec4& color, float depth, unsigned int value)
 {
-  glPushAttrib(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  const RenderState previousState = currentState;
 
-  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-  glDepthMask(GL_TRUE);
-  glStencilMask(GL_TRUE);
+  RenderState clearState = currentState;
+  clearState.colorWriting = true;
+  clearState.depthWriting = true;
+  clearState.stencilMask = ~0u;
+  applyState(clearState);
 
   glClearColor(color.r, color.g, color.b, color.a);
   glClearDepth(depth);
@@ -690,11 +831,11 @@ void Context::clearBuffers(const vec4& color, float depth, unsigned int value)
 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-  glPopAttrib();
-
 #if WENDY_DEBUG
-  checkGL("Error during buffer clearing");
+  checkGL("Error during color buffer clearing");
 #endif
+
+  applyState(previousState);
 }
 
 void Context::render(const PrimitiveRange& range)
@@ -714,6 +855,8 @@ void Context::render(const PrimitiveRange& range)
 
 void Context::render(PrimitiveType type, unsigned int start, unsigned int count)
 {
+  ProfileNodeCall call("GL::Context::render");
+
   if (!currentProgram)
   {
     logError("Cannot render without a current shader program");
@@ -818,6 +961,8 @@ void Context::refresh()
 
 bool Context::update()
 {
+  ProfileNodeCall call("GL::Context::update");
+
   glfwSwapBuffers();
   finishSignal();
   needsRefresh = false;
@@ -842,7 +987,7 @@ bool Context::update()
 
 void Context::requestClose()
 {
-  closeCallback();
+  closeCallback(handle);
 }
 
 void Context::createSharedSampler(const char* name, SamplerType type, int ID)
@@ -852,11 +997,7 @@ void Context::createSharedSampler(const char* name, SamplerType type, int ID)
   if (getSharedSamplerID(name, type) != INVALID_SHARED_STATE_ID)
     return;
 
-  declaration += "uniform ";
-  declaration += Sampler::getTypeName(type);
-  declaration += " ";
-  declaration += name;
-  declaration += ";\n";
+  declaration += format("uniform %s %s;\n", Sampler::getTypeName(type), name);
 
   samplers.push_back(SharedSampler(name, type, ID));
 }
@@ -868,18 +1009,14 @@ void Context::createSharedUniform(const char* name, UniformType type, int ID)
   if (getSharedUniformID(name, type) != INVALID_SHARED_STATE_ID)
     return;
 
-  declaration += "uniform ";
-  declaration += Uniform::getTypeName(type);
-  declaration += " ";
-  declaration += name;
-  declaration += ";\n";
+  declaration += format("uniform %s %s;\n", Uniform::getTypeName(type), name);
 
   uniforms.push_back(SharedUniform(name, type, ID));
 }
 
 int Context::getSharedSamplerID(const char* name, SamplerType type) const
 {
-  for (SamplerList::const_iterator s = samplers.begin(); s != samplers.end(); s++)
+  for (auto s = samplers.begin(); s != samplers.end(); s++)
   {
     if (s->name == name && s->type == type)
       return s->ID;
@@ -890,7 +1027,7 @@ int Context::getSharedSamplerID(const char* name, SamplerType type) const
 
 int Context::getSharedUniformID(const char* name, UniformType type) const
 {
-  for (UniformList::const_iterator u = uniforms.begin(); u != uniforms.end(); u++)
+  for (auto u = uniforms.begin(); u != uniforms.end(); u++)
   {
     if (u->name == name && u->type == type)
       return u->ID;
@@ -901,12 +1038,12 @@ int Context::getSharedUniformID(const char* name, UniformType type) const
 
 SharedProgramState* Context::getCurrentSharedProgramState() const
 {
-  return currentState;
+  return currentSharedState;
 }
 
 void Context::setCurrentSharedProgramState(SharedProgramState* newState)
 {
-  currentState = newState;
+  currentSharedState = newState;
 }
 
 const char* Context::getSharedProgramStateDeclaration() const
@@ -929,12 +1066,12 @@ void Context::setRefreshMode(RefreshMode newMode)
   refreshMode = newMode;
 }
 
-unsigned int Context::getSwapInterval() const
+int Context::getSwapInterval() const
 {
   return swapInterval;
 }
 
-void Context::setSwapInterval(unsigned int newInterval)
+void Context::setSwapInterval(int newInterval)
 {
   glfwSwapInterval(newInterval);
   swapInterval = newInterval;
@@ -1002,10 +1139,10 @@ bool Context::setCurrentFramebuffer(Framebuffer& newFramebuffer)
 #if WENDY_DEBUG
   if (currentFramebuffer != defaultFramebuffer)
   {
-    GLenum status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status == 0)
       checkGL("Framebuffer status check failed");
-    else if (status != GL_FRAMEBUFFER_COMPLETE_EXT)
+    else if (status != GL_FRAMEBUFFER_COMPLETE)
       logError("Image framebuffer is incomplete: %s", getFramebufferStatusMessage(status));
   }
 #endif
@@ -1127,6 +1264,11 @@ void Context::setCurrentTexture(Texture* newTexture)
   }
 }
 
+unsigned int Context::getTextureUnitCount() const
+{
+  return (unsigned int) textureUnits.size();
+}
+
 unsigned int Context::getActiveTextureUnit() const
 {
   return activeTextureUnit;
@@ -1146,6 +1288,26 @@ void Context::setActiveTextureUnit(unsigned int unit)
   }
 }
 
+bool Context::isCullingInverted()
+{
+  return cullingInverted;
+}
+
+void Context::setCullingInversion(bool newState)
+{
+  cullingInverted = newState;
+}
+
+const RenderState& Context::getCurrentRenderState() const
+{
+  return currentState;
+}
+
+void Context::setCurrentRenderState(const RenderState& newState)
+{
+  applyState(newState);
+}
+
 Stats* Context::getStats() const
 {
   return stats;
@@ -1163,7 +1325,7 @@ const String& Context::getTitle() const
 
 void Context::setTitle(const char* newTitle)
 {
-  glfwSetWindowTitle(newTitle);
+  glfwSetWindowTitle(handle, newTitle);
   title = newTitle;
 }
 
@@ -1198,11 +1360,11 @@ SignalProxy2<void, unsigned int, unsigned int> Context::getResizedSignal()
 }
 
 bool Context::createSingleton(ResourceCache& cache,
-                              const WindowConfig& windowConfig,
-                              const ContextConfig& contextConfig)
+                              const WindowConfig& wc,
+                              const ContextConfig& cc)
 {
   Ptr<Context> context(new Context(cache));
-  if (!context->init(windowConfig, contextConfig))
+  if (!context->init(wc, cc))
     return false;
 
   set(context.detachObject());
@@ -1211,19 +1373,16 @@ bool Context::createSingleton(ResourceCache& cache,
 
 Context::Context(ResourceCache& initCache):
   cache(initCache),
+  handle(NULL),
   refreshMode(AUTOMATIC_REFRESH),
   needsRefresh(false),
   needsClosing(false),
   dirtyBinding(true),
+  dirtyState(true),
+  cullingInverted(false),
   activeTextureUnit(0),
   stats(NULL)
 {
-  // Necessary hack in case GLFW calls a callback before
-  // we have had time to call Singleton::set.
-
-  // TODO: Remove this upon the arrival of GLFW user pointers.
-
-  instance = this;
 }
 
 Context::Context(const Context& source):
@@ -1237,60 +1396,57 @@ Context& Context::operator = (const Context& source)
   panic("OpenGL contexts may not be assigned");
 }
 
-bool Context::init(const WindowConfig& windowConfig,
-                   const ContextConfig& contextConfig)
+bool Context::init(const WindowConfig& wc, const ContextConfig& cc)
 {
+  glfwSetErrorCallback(errorCallback);
+
   if (!glfwInit())
   {
     logError("Failed to initialize GLFW");
     return false;
   }
 
+  log("GLFW version %s initialized", glfwGetVersionString());
+
   // Create context and window
   {
-    unsigned int colorBits = contextConfig.colorBits;
-    if (colorBits > 24)
-      colorBits = 24;
+    const unsigned int colorBits = min(cc.colorBits, 24u);
 
-    unsigned int mode;
+    glfwOpenWindowHint(GLFW_RED_BITS, colorBits / 3);
+    glfwOpenWindowHint(GLFW_GREEN_BITS, colorBits / 3);
+    glfwOpenWindowHint(GLFW_BLUE_BITS, colorBits / 3);
+    glfwOpenWindowHint(GLFW_DEPTH_BITS, cc.depthBits);
+    glfwOpenWindowHint(GLFW_STENCIL_BITS, cc.stencilBits);
+    glfwOpenWindowHint(GLFW_FSAA_SAMPLES, cc.samples);
 
-    if (windowConfig.mode == WINDOWED)
-      mode = GLFW_WINDOW;
-    else
-      mode = GLFW_FULLSCREEN;
-
-    if (contextConfig.samples)
-      glfwOpenWindowHint(GLFW_FSAA_SAMPLES, contextConfig.samples);
-
-    version = contextConfig.version;
-    if (version < Version(2,1))
-      version = Version(2,1);
+    version = max(cc.version, Version(3,2));
 
     glfwOpenWindowHint(GLFW_OPENGL_VERSION_MAJOR, version.m);
     glfwOpenWindowHint(GLFW_OPENGL_VERSION_MINOR, version.n);
+    glfwOpenWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
 
-    glfwOpenWindowHint(GLFW_WINDOW_NO_RESIZE, !windowConfig.resizable);
-
-    if (version > Version(3,1))
-    {
-      // Wendy still uses deprecated functionality
-      glfwOpenWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
-    }
+    glfwOpenWindowHint(GLFW_WINDOW_RESIZABLE, wc.resizable);
 
 #if WENDY_DEBUG
     glfwOpenWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
 #endif
 
-    if (!glfwOpenWindow(windowConfig.width, windowConfig.height,
-                        colorBits / 3, colorBits / 3, colorBits / 3, 0,
-                        contextConfig.depthBits, contextConfig.stencilBits, mode))
+    unsigned int mode;
+
+    if (wc.mode == WINDOWED)
+      mode = GLFW_WINDOWED;
+    else
+      mode = GLFW_FULLSCREEN;
+
+    handle = glfwOpenWindow(wc.width, wc.height, mode, wc.title.c_str(), NULL);
+    if (!handle)
     {
       logError("Failed to create GLFW window");
       return false;
     }
 
-    version = Version(glfwGetWindowParam(GLFW_OPENGL_VERSION_MAJOR),
-                      glfwGetWindowParam(GLFW_OPENGL_VERSION_MINOR));
+    version = Version(glfwGetWindowParam(handle, GLFW_OPENGL_VERSION_MAJOR),
+                      glfwGetWindowParam(handle, GLFW_OPENGL_VERSION_MINOR));
 
     log("OpenGL context version %i.%i created", version.m, version.n);
 
@@ -1301,7 +1457,8 @@ bool Context::init(const WindowConfig& windowConfig,
         (const char*) glGetString(GL_RENDERER),
         (const char*) glGetString(GL_VENDOR));
 
-    windowMode = windowConfig.mode;
+    windowMode = wc.mode;
+    title = wc.title;
   }
 
   // Initialize GLEW and check extensions
@@ -1309,18 +1466,6 @@ bool Context::init(const WindowConfig& windowConfig,
     if (glewInit() != GLEW_OK)
     {
       logError("Failed to initialize GLEW");
-      return false;
-    }
-
-    if (!GLEW_ARB_texture_rectangle && version < Version(3,1))
-    {
-      logError("Rectangular textures (ARB_texture_rectangle) is required but not supported");
-      return false;
-    }
-
-    if (!GLEW_EXT_framebuffer_object)
-    {
-      logError("Framebuffer objects (EXT_framebuffer_object) are required but not supported");
       return false;
     }
 
@@ -1338,8 +1483,8 @@ bool Context::init(const WindowConfig& windowConfig,
 
   // Set up texture unit cache
   {
-    unsigned int unitCount = max(limits->maxCombinedTextureImageUnits,
-                                 limits->maxTextureCoords);
+    const unsigned int unitCount = max(limits->maxCombinedTextureImageUnits,
+                                       limits->maxTextureCoords);
 
     textureUnits.resize(unitCount);
   }
@@ -1354,16 +1499,16 @@ bool Context::init(const WindowConfig& windowConfig,
     // Read back actual (as opposed to desired) properties
 
     int width, height;
-    glfwGetWindowSize(&width, &height);
+    glfwGetWindowSize(handle, &width, &height);
     defaultFramebuffer->width = width;
     defaultFramebuffer->height = height;
 
-    defaultFramebuffer->colorBits = glfwGetWindowParam(GLFW_RED_BITS) +
-                                    glfwGetWindowParam(GLFW_GREEN_BITS) +
-                                    glfwGetWindowParam(GLFW_BLUE_BITS);
-    defaultFramebuffer->depthBits = glfwGetWindowParam(GLFW_DEPTH_BITS);
-    defaultFramebuffer->stencilBits = glfwGetWindowParam(GLFW_STENCIL_BITS);
-    defaultFramebuffer->samples = glfwGetWindowParam(GLFW_FSAA_SAMPLES);
+    defaultFramebuffer->colorBits = glfwGetWindowParam(handle, GLFW_RED_BITS) +
+                                    glfwGetWindowParam(handle, GLFW_GREEN_BITS) +
+                                    glfwGetWindowParam(handle, GLFW_BLUE_BITS);
+    defaultFramebuffer->depthBits = glfwGetWindowParam(handle, GLFW_DEPTH_BITS);
+    defaultFramebuffer->stencilBits = glfwGetWindowParam(handle, GLFW_STENCIL_BITS);
+    defaultFramebuffer->samples = glfwGetWindowParam(handle, GLFW_FSAA_SAMPLES);
 
     setDefaultFramebufferCurrent();
 
@@ -1373,44 +1518,252 @@ bool Context::init(const WindowConfig& windowConfig,
 
   // Finish GLFW init
   {
-    setTitle(windowConfig.title.c_str());
     setSwapInterval(1);
 
+    glfwSetWindowUserPointer(handle, this);
     glfwSetWindowSizeCallback(sizeCallback);
     glfwSetWindowCloseCallback(closeCallback);
     glfwSetWindowRefreshCallback(refreshCallback);
-    glfwDisable(GLFW_AUTO_POLL_EVENTS);
     glfwPollEvents();
   }
+
+  forceState(currentState);
 
   return true;
 }
 
-void Context::sizeCallback(int width, int height)
+void Context::applyState(const RenderState& newState)
 {
-  instance->defaultFramebuffer->width = width;
-  instance->defaultFramebuffer->height = height;
-  instance->resizedSignal(width, height);
+  if (stats)
+    stats->addStateChange();
+
+  if (dirtyState)
+  {
+    forceState(newState);
+    return;
+  }
+
+  CullMode cullMode = newState.cullMode;
+  if (cullingInverted)
+    cullMode = invertCullMode(cullMode);
+
+  if (cullMode != currentState.cullMode)
+  {
+    if ((cullMode == CULL_NONE) != (currentState.cullMode == CULL_NONE))
+      setBooleanState(GL_CULL_FACE, cullMode != CULL_NONE);
+
+    if (cullMode != CULL_NONE)
+      glCullFace(convertToGL(cullMode));
+
+    currentState.cullMode = cullMode;
+  }
+
+  if (newState.srcFactor != currentState.srcFactor ||
+      newState.dstFactor != currentState.dstFactor)
+  {
+    setBooleanState(GL_BLEND, newState.srcFactor != BLEND_ONE ||
+                              newState.dstFactor != BLEND_ZERO);
+
+    if (newState.srcFactor != BLEND_ONE || newState.dstFactor != BLEND_ZERO)
+    {
+      glBlendFunc(convertToGL(newState.srcFactor),
+                  convertToGL(newState.dstFactor));
+    }
+
+    currentState.srcFactor = newState.srcFactor;
+    currentState.dstFactor = newState.dstFactor;
+  }
+
+  if (newState.depthTesting || newState.depthWriting)
+  {
+    // Set depth buffer writing.
+    if (newState.depthWriting != currentState.depthWriting)
+      glDepthMask(newState.depthWriting ? GL_TRUE : GL_FALSE);
+
+    if (newState.depthTesting)
+    {
+      // Set depth buffer function.
+      if (newState.depthFunction != currentState.depthFunction)
+      {
+        glDepthFunc(convertToGL(newState.depthFunction));
+        currentState.depthFunction = newState.depthFunction;
+      }
+    }
+    else if (newState.depthWriting)
+    {
+      // NOTE: Special case; depth buffer filling.
+      //       Set specific depth buffer function.
+      const Function depthFunction = ALLOW_ALWAYS;
+
+      if (currentState.depthFunction != depthFunction)
+      {
+        glDepthFunc(convertToGL(depthFunction));
+        currentState.depthFunction = depthFunction;
+      }
+    }
+
+    if (!(currentState.depthTesting || currentState.depthWriting))
+      glEnable(GL_DEPTH_TEST);
+  }
+  else
+  {
+    if (currentState.depthTesting || currentState.depthWriting)
+      glDisable(GL_DEPTH_TEST);
+  }
+
+  currentState.depthTesting = newState.depthTesting;
+  currentState.depthWriting = newState.depthWriting;
+
+  if (newState.colorWriting != currentState.colorWriting)
+  {
+    const GLboolean state = newState.colorWriting ? GL_TRUE : GL_FALSE;
+    glColorMask(state, state, state, state);
+    currentState.colorWriting = newState.colorWriting;
+  }
+
+  if (newState.stencilTesting != currentState.stencilTesting)
+  {
+    setBooleanState(GL_STENCIL_TEST, newState.stencilTesting);
+    currentState.stencilTesting = newState.stencilTesting;
+  }
+
+  if (newState.stencilTesting)
+  {
+    if (newState.stencilFunction != currentState.stencilFunction ||
+        newState.stencilRef != currentState.stencilRef ||
+        newState.stencilMask != currentState.stencilMask)
+    {
+      glStencilFunc(convertToGL(newState.stencilFunction),
+                    newState.stencilRef, newState.stencilMask);
+
+      currentState.stencilFunction = newState.stencilFunction;
+      currentState.stencilRef = newState.stencilRef;
+      currentState.stencilMask = newState.stencilMask;
+    }
+
+    if (newState.stencilFailOp != currentState.stencilFailOp ||
+        newState.depthFailOp != currentState.depthFailOp ||
+        newState.depthPassOp != currentState.depthPassOp)
+    {
+      glStencilOp(convertToGL(newState.stencilFailOp),
+                  convertToGL(newState.depthFailOp),
+                  convertToGL(newState.depthPassOp));
+
+      currentState.stencilFailOp = newState.stencilFailOp;
+      currentState.depthFailOp = newState.depthFailOp;
+      currentState.depthPassOp = newState.depthPassOp;
+    }
+  }
+
+  if (newState.wireframe != currentState.wireframe)
+  {
+    const GLenum state = newState.wireframe ? GL_LINE : GL_FILL;
+    glPolygonMode(GL_FRONT_AND_BACK, state);
+    currentState.wireframe = newState.wireframe;
+  }
+
+  if (newState.lineSmoothing != currentState.lineSmoothing)
+  {
+    setBooleanState(GL_LINE_SMOOTH, newState.lineSmoothing);
+    currentState.lineSmoothing = newState.lineSmoothing;
+  }
+
+  if (newState.multisampling != currentState.multisampling)
+  {
+    setBooleanState(GL_MULTISAMPLE, newState.multisampling);
+    currentState.multisampling = newState.multisampling;
+  }
+
+  if (newState.lineWidth != currentState.lineWidth)
+  {
+    glLineWidth(newState.lineWidth);
+    currentState.lineWidth = newState.lineWidth;
+  }
+
+#if WENDY_DEBUG
+  checkGL("Error when applying render state");
+#endif
 }
 
-int Context::closeCallback()
+void Context::forceState(const RenderState& newState)
 {
-  std::vector<bool> results;
+  currentState = newState;
 
-  instance->closeRequestSignal(results);
+  CullMode cullMode = newState.cullMode;
+  if (cullingInverted)
+    cullMode = invertCullMode(cullMode);
+
+  setBooleanState(GL_CULL_FACE, cullMode != CULL_NONE);
+  if (cullMode != CULL_NONE)
+    glCullFace(convertToGL(cullMode));
+
+  setBooleanState(GL_BLEND, newState.srcFactor != BLEND_ONE ||
+                            newState.dstFactor != BLEND_ZERO);
+  glBlendFunc(convertToGL(newState.srcFactor), convertToGL(newState.dstFactor));
+
+  glDepthMask(newState.depthWriting ? GL_TRUE : GL_FALSE);
+  setBooleanState(GL_DEPTH_TEST, newState.depthTesting || newState.depthWriting);
+
+  if (newState.depthWriting && !newState.depthTesting)
+  {
+    const Function depthFunction = ALLOW_ALWAYS;
+    glDepthFunc(convertToGL(depthFunction));
+    currentState.depthFunction = depthFunction;
+  }
+  else
+    glDepthFunc(convertToGL(newState.depthFunction));
+
+  const GLboolean state = newState.colorWriting ? GL_TRUE : GL_FALSE;
+  glColorMask(state, state, state, state);
+
+  const GLenum polygonMode = newState.wireframe ? GL_LINE : GL_FILL;
+  glPolygonMode(GL_FRONT_AND_BACK, polygonMode);
+
+  setBooleanState(GL_LINE_SMOOTH, newState.lineSmoothing);
+  glLineWidth(newState.lineWidth);
+
+  setBooleanState(GL_MULTISAMPLE, newState.multisampling);
+
+  setBooleanState(GL_STENCIL_TEST, newState.stencilTesting);
+  glStencilFunc(convertToGL(newState.stencilFunction),
+                newState.stencilRef, newState.stencilMask);
+  glStencilOp(convertToGL(newState.stencilFailOp),
+              convertToGL(newState.depthFailOp),
+              convertToGL(newState.depthPassOp));
+
+#if WENDY_DEBUG
+  checkGL("Error when forcing render state");
+#endif
+
+  dirtyState = false;
+}
+
+void Context::sizeCallback(void* handle, int width, int height)
+{
+  Context* context = (Context*) glfwGetWindowUserPointer(handle);
+  context->defaultFramebuffer->width = width;
+  context->defaultFramebuffer->height = height;
+  context->resizedSignal(width, height);
+}
+
+int Context::closeCallback(void* handle)
+{
+  Context* context = (Context*) glfwGetWindowUserPointer(handle);
+
+  std::vector<bool> results;
+  context->closeRequestSignal(results);
 
   if (std::find(results.begin(), results.end(), false) == results.end())
-    instance->needsClosing = true;
+    context->needsClosing = true;
 
-  return GL_TRUE;
+  return GL_FALSE;
 }
 
-void Context::refreshCallback()
+void Context::refreshCallback(void* handle)
 {
-  instance->needsRefresh = true;
+  Context* context = (Context*) glfwGetWindowUserPointer(handle);
+  context->needsRefresh = true;
 }
-
-Context* Context::instance = NULL;
 
 ///////////////////////////////////////////////////////////////////////
 

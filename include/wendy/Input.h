@@ -54,29 +54,75 @@ namespace wendy
  */
 enum Key
 {
-  KEY_SPACE = 32,
-  KEY_ESCAPE = 256,
-  KEY_TAB,
+  KEY_SPACE,
+  KEY_APOSTROPHE,
+  KEY_COMMA,
+  KEY_MINUS,
+  KEY_PERIOD,
+  KEY_SLASH,
+  KEY_0,
+  KEY_1,
+  KEY_2,
+  KEY_3,
+  KEY_4,
+  KEY_5,
+  KEY_6,
+  KEY_7,
+  KEY_8,
+  KEY_9,
+  KEY_SEMICOLON,
+  KEY_EQUAL,
+  KEY_A,
+  KEY_B,
+  KEY_C,
+  KEY_D,
+  KEY_E,
+  KEY_F,
+  KEY_G,
+  KEY_H,
+  KEY_I,
+  KEY_J,
+  KEY_K,
+  KEY_L,
+  KEY_M,
+  KEY_N,
+  KEY_O,
+  KEY_P,
+  KEY_Q,
+  KEY_R,
+  KEY_S,
+  KEY_T,
+  KEY_U,
+  KEY_V,
+  KEY_W,
+  KEY_X,
+  KEY_Y,
+  KEY_Z,
+  KEY_LEFT_BRACKET,
+  KEY_BACKSLASH,
+  KEY_RIGHT_BRACKET,
+  KEY_GRAVE_ACCENT,
+  KEY_WORLD_1,
+  KEY_WORLD_2,
+  KEY_ESCAPE,
   KEY_ENTER,
+  KEY_TAB,
   KEY_BACKSPACE,
   KEY_INSERT,
   KEY_DELETE,
-  KEY_LSHIFT,
-  KEY_RSHIFT,
-  KEY_LCTRL,
-  KEY_RCTRL,
-  KEY_LALT,
-  KEY_RALT,
-  KEY_LSUPER,
-  KEY_RSUPER,
-  KEY_UP,
-  KEY_DOWN,
-  KEY_LEFT,
   KEY_RIGHT,
-  KEY_PAGEUP,
-  KEY_PAGEDOWN,
+  KEY_LEFT,
+  KEY_DOWN,
+  KEY_UP,
+  KEY_PAGE_UP,
+  KEY_PAGE_DOWN,
   KEY_HOME,
   KEY_END,
+  KEY_CAPS_LOCK,
+  KEY_SCROLL_LOCK,
+  KEY_NUM_LOCK,
+  KEY_PRINT_SCREEN,
+  KEY_PAUSE,
   KEY_F1,
   KEY_F2,
   KEY_F3,
@@ -88,7 +134,46 @@ enum Key
   KEY_F9,
   KEY_F10,
   KEY_F11,
-  KEY_F12
+  KEY_F12,
+  KEY_F13,
+  KEY_F14,
+  KEY_F15,
+  KEY_F16,
+  KEY_F17,
+  KEY_F18,
+  KEY_F19,
+  KEY_F20,
+  KEY_F21,
+  KEY_F22,
+  KEY_F23,
+  KEY_F24,
+  KEY_F25,
+  KEY_KP_0,
+  KEY_KP_1,
+  KEY_KP_2,
+  KEY_KP_3,
+  KEY_KP_4,
+  KEY_KP_5,
+  KEY_KP_6,
+  KEY_KP_7,
+  KEY_KP_8,
+  KEY_KP_9,
+  KEY_KP_DECIMAL,
+  KEY_KP_DIVIDE,
+  KEY_KP_MULTIPLY,
+  KEY_KP_SUBTRACT,
+  KEY_KP_ADD,
+  KEY_KP_ENTER,
+  KEY_KP_EQUAL,
+  KEY_LEFT_SHIFT,
+  KEY_LEFT_CONTROL,
+  KEY_LEFT_ALT,
+  KEY_LEFT_SUPER,
+  KEY_RIGHT_SHIFT,
+  KEY_RIGHT_CONTROL,
+  KEY_RIGHT_ALT,
+  KEY_RIGHT_SUPER,
+  KEY_MENU
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -107,6 +192,11 @@ enum Button
 
 /*! @brief Input hook interface.
  *  @ingroup input
+ *
+ *  This is intended for hotkeys that should work regardless of which target
+ *  currently has focus, such as a key to bring down the console.  It gets first
+ *  pick of any input and can prevent it from being passed on to the current
+ *  target.
  */
 class Hook
 {
@@ -123,7 +213,7 @@ public:
    *  @return @c true to prevent this event from reaching the current input
    *  target, or @c false to pass it on.
    */
-  virtual bool onCharInput(wchar_t character);
+  virtual bool onCharInput(uint32 character);
   /*! Called when a mouse button has been clicked or released.
    *  @return @c true to prevent this event from reaching the current input
    *  target, or @c false to pass it on.
@@ -134,17 +224,20 @@ public:
    *  target, or @c false to pass it on.
    */
   virtual bool onCursorMoved(const ivec2& position);
-  /*! Called when the mouse wheel or other scrolling device has been moved.
+  /*! Called when a scrolling device has been used.
    *  @return @c true to prevent this event from reaching the current input
    *  target, or @c false to pass it on.
    */
-  virtual bool onWheelTurned(int offset);
+  virtual bool onScrolled(double x, double y);
 };
 
 ///////////////////////////////////////////////////////////////////////
 
 /*! @brief Input target interface.
  *  @ingroup input
+ *
+ *  This is intended for use by game modules such as menus, editors, the console
+ *  and the game itself.
  */
 class Target
 {
@@ -160,16 +253,16 @@ public:
   virtual void onKeyPressed(Key key, bool pressed);
   /*! Called when a Unicode character has been input.
    */
-  virtual void onCharInput(wchar_t character);
+  virtual void onCharInput(uint32 character);
   /*! Called when a mouse button has been clicked or released.
    */
   virtual void onButtonClicked(Button button, bool clicked);
   /*! Called when the mouse cursor has been moved.
    */
   virtual void onCursorMoved(const ivec2& position);
-  /*! Called when the mouse wheel or other scrolling device has been moved.
+  /*! Called when a scrolling device has been used.
    */
-  virtual void onWheelTurned(int offset);
+  virtual void onScrolled(double x, double y);
   /*! Called when this input target has lost or gained focus.
    */
   virtual void onFocusChanged(bool activated);
@@ -182,18 +275,18 @@ public:
  *
  *  This class provides basic HID (input) signals.
  */
-class Context : public Singleton<Context>
+class Window : public Singleton<Window>
 {
 public:
   /*! Destructor.
    */
-  virtual ~Context();
+  virtual ~Window();
   void captureCursor();
   void releaseCursor();
   /*! @return @c true if the specified key is pressed, otherwise @c false.
    *  @param[in] key The desired key.
    */
-  bool isKeyDown(const Key& key) const;
+  bool isKeyDown(Key key) const;
   /*! @return @c true if the specified mouse button is pressed, otherwise @c false.
    *  @param[in] button The desired mouse button.
    */
@@ -207,7 +300,7 @@ public:
   unsigned int getHeight() const;
   /*! @return The current mouse position.
    */
-  const ivec2& getCursorPosition() const;
+  ivec2 getCursorPosition() const;
   /*! Places the the mouse cursor at the specified position.
    *  @param[in] newPosition The desired mouse position.
    */
@@ -221,22 +314,20 @@ public:
   GL::Context& getContext() const;
   static bool createSingleton(GL::Context& context);
 private:
-  Context(GL::Context& context);
-  Context(const Context& source);
-  Context& operator = (const Context& source);
-  void onContextResized(unsigned int width, unsigned int height);
-  static void keyboardCallback(int key, int action);
-  static void characterCallback(int character, int action);
-  static void mousePosCallback(int x, int y);
-  static void mouseButtonCallback(int button, int action);
-  static void mouseWheelCallback(int position);
+  Window(GL::Context& context);
+  Window(const Window& source);
+  Window& operator = (const Window& source);
+  void onWindowResized(unsigned int width, unsigned int height);
+  static void keyboardCallback(void* window, int key, int action);
+  static void characterCallback(void* window, int character);
+  static void mousePosCallback(void* window, int x, int y);
+  static void mouseButtonCallback(void* window, int button, int action);
+  static void scrollCallback(void* window, double x, double y);
   GL::Context& context;
-  int wheelPosition;
+  void* handle;
   Hook* currentHook;
   Target* currentTarget;
-  bool cursorCaptured;
-  mutable ivec2 cursorPosition;
-  static Context* instance;
+  static Window* instance;
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -250,7 +341,7 @@ public:
   void onKeyPressed(Key key, bool pressed);
   void onButtonClicked(Button button, bool clicked);
   void onCursorMoved(const ivec2& position);
-  void onWheelTurned(int offset);
+  void onScrolled(double x, double y);
   void onFocusChanged(bool activated);
   const Transform3& getTransform() const;
 private:
@@ -316,7 +407,7 @@ class TextController : public Target
 public:
   TextController();
   void onKeyPressed(Key key, bool pressed);
-  void onCharInput(wchar_t character);
+  void onCharInput(uint32 character);
   const String& getText() const;
   void setText(const String& newText);
   size_t getCaretPosition() const;

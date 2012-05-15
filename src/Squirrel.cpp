@@ -162,9 +162,14 @@ void logErrorCallStack(HSQUIRRELVM vm)
         }
 
         case OT_CLOSURE:
+        {
+          stream << "function() [Squirrel]";
+          break;
+        }
+
         case OT_NATIVECLOSURE:
         {
-          stream << "function()";
+          stream << "function() [C++]";
           break;
         }
 
@@ -445,10 +450,11 @@ Object Object::clone() const
 
 Object& Object::operator = (const Object& source)
 {
+  HSQOBJECT next = source.handle;
+  sq_addref(vm, &next);
   sq_release(vm, &handle);
-  handle = source.handle;
+  handle = next;
   vm = source.vm;
-  sq_addref(vm, &handle);
   return *this;
 }
 

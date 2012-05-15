@@ -1,7 +1,7 @@
 //========================================================================
-// GLFW - An OpenGL framework
+// GLFW - An OpenGL library
 // Platform:    Cocoa/NSOpenGL
-// API Version: 2.7
+// API Version: 3.0
 // WWW:         http://www.glfw.org/
 //------------------------------------------------------------------------
 // Copyright (c) 2009-2010 Camilla Berglund <elmindreda@elmindreda.org>
@@ -29,27 +29,59 @@
 
 #include "internal.h"
 
-#include <sys/time.h>
+#include <mach/mach_time.h>
 
-//************************************************************************
-//****               Platform implementation functions                ****
-//************************************************************************
+
+//========================================================================
+// Return raw time
+//========================================================================
+
+static uint64_t getRawTime(void)
+{
+    return mach_absolute_time();
+}
+
+
+//////////////////////////////////////////////////////////////////////////
+//////                       GLFW internal API                      //////
+//////////////////////////////////////////////////////////////////////////
+
+//========================================================================
+// Initialise timer
+//========================================================================
+
+void _glfwInitTimer(void)
+{
+    mach_timebase_info_data_t info;
+    mach_timebase_info(&info);
+
+    _glfwLibrary.NS.timer.resolution = (double) info.numer / (info.denom * 1.0e9);
+    _glfwLibrary.NS.timer.base = getRawTime();
+}
+
+
+//////////////////////////////////////////////////////////////////////////
+//////                       GLFW platform API                      //////
+//////////////////////////////////////////////////////////////////////////
 
 //========================================================================
 // Return timer value in seconds
 //========================================================================
 
-double _glfwPlatformGetTime( void )
+double _glfwPlatformGetTime(void)
 {
-    return [NSDate timeIntervalSinceReferenceDate] - _glfwLibrary.Timer.t0;
+    return (double) (getRawTime() - _glfwLibrary.NS.timer.base) *
+        _glfwLibrary.NS.timer.resolution;
 }
+
 
 //========================================================================
 // Set timer value in seconds
 //========================================================================
 
-void _glfwPlatformSetTime( double time )
+void _glfwPlatformSetTime(double time)
 {
-    _glfwLibrary.Timer.t0 = [NSDate timeIntervalSinceReferenceDate] - time;
+    _glfwLibrary.NS.timer.base = getRawTime() -
+        (uint64_t) (time / _glfwLibrary.NS.timer.resolution);
 }
 

@@ -58,7 +58,7 @@ class Layer : public input::Target, public Trackable, public RefObject
 public:
   /*! Constructor.
    */
-  Layer(input::Context& context, Drawer& drawer);
+  Layer(input::Window& window, Drawer& drawer);
   /*! Destructor.
    */
   ~Layer();
@@ -85,7 +85,7 @@ public:
   unsigned int getHeight() const;
   void setSize(unsigned int newWidth, unsigned int newHeight);
   Drawer& getDrawer() const;
-  input::Context& getInputContext() const;
+  input::Window& getWindow() const;
   /*! @return The root widgets of this layer.
    */
   const WidgetList& getRootWidgets() const;
@@ -101,12 +101,12 @@ private:
   void updateHoveredWidget();
   void removedWidget(Widget& widget);
   void onKeyPressed(input::Key key, bool pressed);
-  void onCharInput(wchar_t character);
+  void onCharInput(uint32 character);
   void onCursorMoved(const ivec2& position);
   void onButtonClicked(input::Button button, bool clicked);
-  void onWheelTurned(int offset);
+  void onScrolled(double x, double y);
   void onFocusChanged(bool activated);
-  input::Context& context;
+  input::Window& window;
   Drawer& drawer;
   unsigned int width;
   unsigned int height;
@@ -125,7 +125,7 @@ private:
 class LayerStack
 {
 public:
-  LayerStack(input::Context& context);
+  LayerStack(input::Window& window);
   void update() const;
   void draw() const;
   void push(Layer& layer);
@@ -134,8 +134,8 @@ public:
   bool isEmpty() const;
   void setSize(unsigned int newWidth, unsigned int newHeight);
 private:
-  typedef std::vector<Ref<Layer> > LayerList;
-  input::Context& context;
+  typedef std::vector<Ref<Layer>> LayerList;
+  input::Window& window;
   LayerList layers;
   unsigned int width;
   unsigned int height;

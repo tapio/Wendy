@@ -59,19 +59,10 @@ enum ShaderType
 
 ///////////////////////////////////////////////////////////////////////
 
-/*! @brief GLSL #define container.
+/*! @brief GLSL define key/value pair set.
  *  @ingroup opengl
  */
-class ShaderDefines
-{
-public:
-  void add(const String& name, const String& value = "");
-  String getCacheString() const;
-  String getGLSL() const;
-private:
-  typedef std::vector< std::pair<String, String> > DefineList;
-  DefineList defines;
-};
+typedef std::vector<std::pair<String, String>> ShaderDefines;
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -97,7 +88,7 @@ public:
                             const ShaderDefines& defines = ShaderDefines());
   static Ref<Shader> read(Context& context,
                           ShaderType type,
-                          const String& name,
+                          const String& textName,
                           const ShaderDefines& defines = ShaderDefines());
 private:
   Shader(const ResourceInfo& info, Context& context, ShaderType type);
@@ -425,9 +416,9 @@ public:
    */
   bool matches(const VertexFormat& format, bool verbose = false) const;
 private:
-  typedef std::vector<std::pair<String, SamplerType> > SamplerList;
-  typedef std::vector<std::pair<String, UniformType> > UniformList;
-  typedef std::vector<std::pair<String, AttributeType> > AttributeList;
+  typedef std::vector<std::pair<String, SamplerType>> SamplerList;
+  typedef std::vector<std::pair<String, UniformType>> UniformList;
+  typedef std::vector<std::pair<String, AttributeType>> AttributeList;
   SamplerList samplers;
   UniformList uniforms;
   AttributeList attributes;

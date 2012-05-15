@@ -1,7 +1,7 @@
 //========================================================================
-// GLFW - An OpenGL framework
+// GLFW - An OpenGL library
 // Platform:    Any
-// API version: 2.7
+// API version: 3.0
 // WWW:         http://www.glfw.org/
 //------------------------------------------------------------------------
 // Copyright (c) 2002-2006 Marcus Geelnard
@@ -31,19 +31,19 @@
 #include "internal.h"
 
 
-//************************************************************************
-//****                    GLFW user functions                         ****
-//************************************************************************
+//////////////////////////////////////////////////////////////////////////
+//////                        GLFW public API                       //////
+//////////////////////////////////////////////////////////////////////////
 
 //========================================================================
 // Return timer value in seconds
 //========================================================================
 
-GLFWAPI double glfwGetTime( void )
+GLFWAPI double glfwGetTime(void)
 {
-    // Is GLFW initialized?
-    if( !_glfwInitialized )
+    if (!_glfwInitialized)
     {
+        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
         return 0.0;
     }
 
@@ -55,15 +55,14 @@ GLFWAPI double glfwGetTime( void )
 // Set timer value in seconds
 //========================================================================
 
-GLFWAPI void glfwSetTime( double time )
+GLFWAPI void glfwSetTime(double time)
 {
-    // Is GLFW initialized?
-    if( !_glfwInitialized )
+    if (!_glfwInitialized)
     {
+        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
         return;
     }
 
-    _glfwPlatformSetTime( time );
+    _glfwPlatformSetTime(time);
 }
-
 

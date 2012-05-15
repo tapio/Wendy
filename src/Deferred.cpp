@@ -452,14 +452,15 @@ void Renderer::renderOperations(const render::Queue& queue)
   const render::SortKeyList& keys = queue.getSortKeys();
   const render::OperationList& operations = queue.getOperations();
 
-  for (render::SortKeyList::const_iterator k = keys.begin();  k != keys.end();  k++)
+  for (auto k = keys.begin();  k != keys.end();  k++)
   {
-    const render::Operation& op = operations[k->index];
+	const render::SortKey key(*k);
+	const render::Operation& op = operations[key.index];
 
-    state->setModelMatrix(op.transform);
-    op.state->apply();
+	state->setModelMatrix(op.transform);
+	op.state->apply();
 
-    context.render(op.range);
+	context.render(op.range);
   }
 }
 

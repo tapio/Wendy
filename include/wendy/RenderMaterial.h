@@ -29,7 +29,7 @@
 #include <wendy/GLBuffer.h>
 #include <wendy/GLTexture.h>
 #include <wendy/GLProgram.h>
-#include <wendy/GLState.h>
+#include <wendy/RenderState.h>
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -59,15 +59,6 @@ enum Phase
 
 ///////////////////////////////////////////////////////////////////////
 
-/*! @brief Render pass state object.
- *  @ingroup renderer
- */
-class Pass : public GL::RenderState
-{
-};
-
-///////////////////////////////////////////////////////////////////////
-
 /*! @ingroup renderer
  */
 typedef std::vector<Pass> PassList;
@@ -80,22 +71,8 @@ typedef std::vector<Pass> PassList;
 class Technique
 {
 public:
-  /*! Creates a new %render pass in this technique.
-   *  @return The newly created %render pass.
-   *
-   *  @remarks The passes are rendered in creation order.
+  /*! The %render passes in this technique.
    */
-  Pass& createPass();
-  /*! Removes the specified %render pass from this technique.
-   */
-  void destroyPass(Pass& pass);
-  /*! Destroys all %render passes in this technique.
-   */
-  void destroyPasses();
-  /*! @return The %render passes in this technique.
-   */
-  const PassList& getPasses() const;
-private:
   PassList passes;
 };
 
@@ -113,6 +90,10 @@ public:
   /*! @return The technique for the specified phase.
    */
   const Technique& getTechnique(Phase phase) const;
+  /*! Sets all samplers in all passes in all techniques in this material
+   *  matching the specified name to the specified texture.
+   */
+  void setSamplers(const char* name, GL::Texture* newTexture);
   /*! Creates a material.
    *  @param[in] info The resource info for the texture.
    *  @param[in] system The OpenGL context within which to create the texture.

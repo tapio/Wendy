@@ -33,21 +33,16 @@ namespace wendy
 
 ///////////////////////////////////////////////////////////////////////
 
-typedef std::vector<String> ShaderNameList;
-
-///////////////////////////////////////////////////////////////////////
-
-class ShaderPreprocessor
+class Preprocessor
 {
 public:
-  typedef std::vector<String> NameList;
-  ShaderPreprocessor(ResourceCache& cache);
+  Preprocessor(ResourceCache& cache);
   void parse(const char* name);
   void parse(const char* name, const char* text);
   bool hasVersion() const;
   const String& getOutput() const;
   const String& getVersion() const;
-  const ShaderNameList& getNameList() const;
+  const String& getNameList() const;
 private:
   void addLine();
   void advance(size_t offset);
@@ -76,17 +71,19 @@ private:
   bool isFirstOnLine() const;
   void setFirstOnLine(bool newState);
   class File;
+  typedef std::vector<String> NameList;
   typedef std::vector<File> FileList;
   ResourceCache& cache;
   FileList files;
-  ShaderNameList names;
+  NameList names;
   String output;
   String version;
+  String list;
 };
 
 ///////////////////////////////////////////////////////////////////////
 
-class ShaderPreprocessor::File
+class Preprocessor::File
 {
 public:
   File(const char* name, const char* text);

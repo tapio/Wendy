@@ -1,10 +1,10 @@
 //========================================================================
-// GLFW - An OpenGL framework
-// Platform:    Cocoa/NSOpenGL
-// API Version: 2.7
+// GLFW - An OpenGL library
+// Platform:    Any
+// API version: 3.0
 // WWW:         http://www.glfw.org/
 //------------------------------------------------------------------------
-// Copyright (c) 2009-2010 Camilla Berglund <elmindreda@elmindreda.org>
+// Copyright (c) 2010 Camilla Berglund <elmindreda@elmindreda.org>
 //
 // This software is provided 'as-is', without any express or implied
 // warranty. In no event will the authors be held liable for any damages
@@ -29,23 +29,46 @@
 
 #include "internal.h"
 
-//************************************************************************
-//****               Platform implementation functions                ****
-//************************************************************************
+#include <math.h>
+#include <string.h>
+
+
+//////////////////////////////////////////////////////////////////////////
+//////                        GLFW public API                       //////
+//////////////////////////////////////////////////////////////////////////
 
 //========================================================================
-// Enable and disable system keys
+// Set the clipboard contents
 //========================================================================
 
-void _glfwPlatformEnableSystemKeys( void )
+GLFWAPI void glfwSetClipboardString(GLFWwindow handle, const char* string)
 {
-    // This is checked in macosx_window.m; we take no action here
+    _GLFWwindow* window = (_GLFWwindow*) handle;
+
+    if (!_glfwInitialized)
+    {
+        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
+        return;
+    }
+
+    _glfwPlatformSetClipboardString(window, string);
 }
 
-void _glfwPlatformDisableSystemKeys( void )
+
+//========================================================================
+// Return the current clipboard contents
+//========================================================================
+
+GLFWAPI const char* glfwGetClipboardString(GLFWwindow handle)
 {
-    // This is checked in macosx_window.m; we take no action here
-    // I don't think it's really possible to disable stuff like Exposé
-    // except in full-screen mode.
+    _GLFWwindow* window = (_GLFWwindow*) handle;
+
+    if (!_glfwInitialized)
+    {
+        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
+        return NULL;
+    }
+
+    return _glfwPlatformGetClipboardString(window);
 }
 

@@ -1,11 +1,10 @@
 //========================================================================
-// GLFW - An OpenGL framework
-// Platform:    X11 (Unix)
-// API version: 2.7
+// GLFW - An OpenGL library
+// Platform:    Cocoa/NSOpenGL
+// API Version: 3.0
 // WWW:         http://www.glfw.org/
 //------------------------------------------------------------------------
-// Copyright (c) 2002-2006 Marcus Geelnard
-// Copyright (c) 2006-2010 Camilla Berglund <elmindreda@elmindreda.org>
+// Copyright (c) 2009-2010 Camilla Berglund <elmindreda@elmindreda.org>
 //
 // This software is provided 'as-is', without any express or implied
 // warranty. In no event will the authors be held liable for any damages
@@ -31,34 +30,23 @@
 #include "internal.h"
 
 
-//************************************************************************
-//****               Platform implementation functions                ****
-//************************************************************************
+//////////////////////////////////////////////////////////////////////////
+//////                       GLFW platform API                      //////
+//////////////////////////////////////////////////////////////////////////
 
 //========================================================================
-// Enable system keys
+// Enable and disable system keys
 //========================================================================
 
-void _glfwPlatformEnableSystemKeys( void )
+void _glfwPlatformEnableSystemKeys(_GLFWwindow* window)
 {
-    if( _glfwWin.keyboardGrabbed )
-    {
-        XUngrabKeyboard( _glfwLibrary.display, CurrentTime );
-        _glfwWin.keyboardGrabbed = GL_FALSE;
-    }
+    // This is checked in macosx_window.m; we take no action here
 }
 
-//========================================================================
-// Disable system keys
-//========================================================================
-
-void _glfwPlatformDisableSystemKeys( void )
+void _glfwPlatformDisableSystemKeys(_GLFWwindow* window)
 {
-    if( XGrabKeyboard( _glfwLibrary.display, _glfwWin.window, True,
-                        GrabModeAsync, GrabModeAsync, CurrentTime ) ==
-        GrabSuccess )
-    {
-        _glfwWin.keyboardGrabbed = GL_TRUE;
-    }
+    // This is checked in macosx_window.m; we take no action here
+    // I don't think it's really possible to disable stuff like Exposé
+    // except in full-screen mode.
 }
 

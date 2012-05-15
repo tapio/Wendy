@@ -25,10 +25,15 @@
 
 #include <wendy/Config.h>
 
+#include <wendy/Core.h>
+#include <wendy/Timer.h>
+#include <wendy/Profile.h>
+
+#include <wendy/RenderPool.h>
+#include <wendy/RenderState.h>
 #include <wendy/RenderCamera.h>
 #include <wendy/RenderMaterial.h>
 #include <wendy/RenderLight.h>
-#include <wendy/RenderPool.h>
 #include <wendy/RenderScene.h>
 #include <wendy/RenderSprite.h>
 
@@ -52,28 +57,38 @@ Config::Config(render::GeometryPool& initPool):
 
 void Renderer::render(const render::Scene& scene, const render::Camera& camera)
 {
+  ProfileNodeCall call("forward::Renderer::render");
+
   GL::Context& context = getContext();
   context.setCurrentSharedProgramState(state);
 
   const Recti& viewportArea = context.getViewportArea();
-
-  state->setViewMatrix(camera.getViewTransform());
-  state->setPerspectiveProjectionMatrix(camera.getFOV(),
-                                        camera.getAspectRatio(),
-                                        camera.getNearZ(),
-                                        camera.getFarZ());
   state->setViewportSize(float(viewportArea.size.x),
                          float(viewportArea.size.y));
-  state->setCameraProperties(camera.getTransform().position,
-                             camera.getFOV(),
-                             camera.getAspectRatio(),
-                             camera.getNearZ(),
-                             camera.getFarZ());
+
+  if (camera.isOrtho())
+    state->setOrthoProjectionMatrix(camera.getOrthoVolume());
+  else
+  {
+    state->setPerspectiveProjectionMatrix(camera.getFOV(),
+                                          camera.getAspectRatio(),
+                                          camera.getNearZ(),
+                                          camera.getFarZ());
+    state->setCameraProperties(camera.getTransform().position,
+                               camera.getFOV(),
+                               camera.getAspectRatio(),
+                               camera.getNearZ(),
+                               camera.getFarZ());
+  }
+
+  state->setViewMatrix(camera.getViewTransform());
 
   renderOperations(scene.getOpaqueQueue());
   renderOperations(scene.getBlendedQueue());
 
   context.setCurrentSharedProgramState(NULL);
+
+  releaseObjects();
 }
 
 SharedProgramState& Renderer::getSharedProgramState()
@@ -121,14 +136,30 @@ void Renderer::renderOperations(const render::Queue& queue)
   const render::SortKeyList& keys = queue.getSortKeys();
   const render::OperationList& operations = queue.getOperations();
 
-  for (render::SortKeyList::const_iterator k = keys.begin();  k != keys.end();  k++)
+  for (auto k = keys.begin();  k != keys.end();  k++)
   {
-    const render::Operation& op = operations[k->index];
+    const render::SortKey key(*k);
+    const render::Operation& op = operations[key.index];
 
     state->setModelMatrix(op.transform);
     op.state->apply();
 
     context.render(op.range);
+  }
+}
+
+void Renderer::releaseObjects()
+{
+  GL::Context& context = getContext();
+
+  context.setCurrentProgram(NULL);
+  context.setCurrentVertexBuffer(NULL);
+  context.setCurrentIndexBuffer(NULL);
+
+  for (size_t i = 0;  i < context.getTextureUnitCount();  i++)
+  {
+    context.setActiveTextureUnit(i);
+    context.setCurrentTexture(NULL);
   }
 }
 

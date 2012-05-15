@@ -78,7 +78,7 @@ Demo::~Demo()
   renderer = NULL;
   pool = NULL;
 
-  input::Context::destroySingleton();
+  input::Window::destroySingleton();
   GL::Context::destroySingleton();
 }
 
@@ -107,7 +107,7 @@ bool Demo::init()
   const unsigned int width = context->getDefaultFramebuffer().getWidth();
   const unsigned int height = context->getDefaultFramebuffer().getHeight();
 
-  if (!input::Context::createSingleton(*context))
+  if (!input::Window::createSingleton(*context))
     return false;
 
   pool = render::GeometryPool::create(*context);
@@ -276,7 +276,7 @@ bool Demo::init()
   timer.start();
 
   {
-    input::Context* context = input::Context::getSingleton();
+	input::Window* context = input::Window::getSingleton();
 
     interface = new debug::Interface(*context, *drawer);
 
