@@ -41,7 +41,7 @@ Test::~Test()
   renderer = NULL;
   pool = NULL;
 
-  input::Context::destroySingleton();
+  input::Window::destroySingleton();
   GL::Context::destroySingleton();
 }
 
@@ -64,10 +64,10 @@ bool Test::init()
   context->getResizedSignal().connect(*this, &Test::onContextResized);
   context->setStats(&stats);
 
-  if (!input::Context::createSingleton(*context))
+  if (!input::Window::createSingleton(*context))
     return false;
 
-  input::Context::getSingleton()->setTarget(&controller);
+  input::Window::getSingleton()->setTarget(&controller);
 
   pool = render::GeometryPool::create(*context);
 
@@ -114,7 +114,7 @@ bool Test::init()
   drawer = UI::Drawer::create(*pool);
   if (!drawer)
     return false;
-  interface = new debug::Interface(*input::Context::getSingleton(), *drawer);
+  interface = new debug::Interface(*input::Window::getSingleton(), *drawer);
 
   return true;
 }

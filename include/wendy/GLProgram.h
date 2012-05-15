@@ -338,7 +338,8 @@ public:
                            const String& fragmentShaderName,
                            const String& geometryShaderName = "",
                            const String& tessCtrlShaderName = "",
-                           const String& tessEvalShaderName = "");
+                           const String& tessEvalShaderName = "",
+                           const ShaderDefines& defines = ShaderDefines());
 private:
   Program(const ResourceInfo& info, Context& context);
   Program(const Program& source);

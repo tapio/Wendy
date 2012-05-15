@@ -29,6 +29,7 @@
 #include <wendy/Transform.h>
 
 #include <wendy/RenderPool.h>
+#include <wendy/RenderState.h>
 #include <wendy/RenderMaterial.h>
 #include <wendy/RenderLight.h>
 #include <wendy/RenderScene.h>
@@ -44,25 +45,9 @@ namespace wendy
 
 ///////////////////////////////////////////////////////////////////////
 
-namespace
-{
-
-struct SortKeyComparator
-{
-  inline bool operator () (SortKey first, SortKey second)
-  {
-    return first.value < second.value;
-  }
-};
-
-} /*namespace*/
-
-///////////////////////////////////////////////////////////////////////
-
 SortKey SortKey::makeOpaqueKey(uint8 layer, uint16 state, float depth)
 {
   SortKey key;
-  key.value = 0;
   key.layer = layer;
   key.state = state;
   key.depth = (unsigned) (((1 << 24) - 1) * clamp(depth, 0.f, 1.f));
@@ -73,7 +58,6 @@ SortKey SortKey::makeOpaqueKey(uint8 layer, uint16 state, float depth)
 SortKey SortKey::makeBlendedKey(uint8 layer, float depth)
 {
   SortKey key;
-  key.value = 0;
   key.layer = layer;
   key.depth = (unsigned) (((1 << 24) - 1) * (1.f - clamp(depth, 0.f, 1.f)));
 
@@ -90,7 +74,7 @@ Operation::Operation():
 ///////////////////////////////////////////////////////////////////////
 
 Queue::Queue():
-  sorted(false)
+  sorted(true)
 {
 }
 
@@ -120,7 +104,7 @@ const SortKeyList& Queue::getSortKeys() const
 {
   if (!sorted)
   {
-    std::sort(keys.begin(), keys.end(), SortKeyComparator());
+    std::sort(keys.begin(), keys.end());
     sorted = true;
   }
 
@@ -161,7 +145,7 @@ void Scene::createOperations(const mat4& transform,
   const PassList& passes = material.getTechnique(phase).passes;
   uint8 layer = 0;
 
-  for (PassList::const_iterator p = passes.begin();  p != passes.end();  p++)
+  for (auto p = passes.begin();  p != passes.end();  p++)
   {
     operation.state = &(*p);
     addOperation(operation, depth, layer++);

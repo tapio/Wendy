@@ -33,6 +33,7 @@
 #include <wendy/GLContext.h>
 
 #include <wendy/RenderPool.h>
+#include <wendy/RenderState.h>
 #include <wendy/RenderSystem.h>
 #include <wendy/RenderMaterial.h>
 
@@ -84,7 +85,7 @@ void Material::setSamplers(const char* name, GL::Texture* newTexture)
   for (size_t i = 0;  i < 2;  i++)
   {
     PassList& passes = techniques[i].passes;
-    for (PassList::iterator p = passes.begin();  p != passes.end();  p++)
+    for (auto p = passes.begin();  p != passes.end();  p++)
     {
       if (p->hasSamplerState(name))
         p->setSamplerState(name, newTexture);
@@ -436,21 +437,6 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
         const String tessCtrlShaderName(node.attribute("tc").value());
         const String tessEvalShaderName(node.attribute("te").value());
 
-        Ref<GL::Program> program = GL::Program::read(context,
-                                                     vertexShaderName,
-                                                     fragmentShaderName,
-                                                     geometryShaderName,
-                                                     tessCtrlShaderName,
-                                                     tessEvalShaderName);
-        if (!program)
-        {
-          logError("Failed to load GLSL program for material \'%s\'",
-                   name.c_str());
-          return NULL;
-        }
-
-        pass.setProgram(program);
-
         GL::ShaderDefines defines;
 
         for (pugi::xml_node d = node.child("define");  d;  d = d.next_sibling("define"))
@@ -458,8 +444,7 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
           const String defineName(d.attribute("name").value());
           if (defineName.empty())
           {
-            logWarning("GLSL program \'%s\' in material \'%s\' lists unnamed define",
-                       program->getName().c_str(),
+            logWarning("GLSL program in material \'%s\' lists unnamed define",
                        name.c_str());
 
             continue;
@@ -473,6 +458,22 @@ Ref<Material> MaterialReader::read(const String& name, const Path& path)
         }
 
         std::sort(defines.begin(), defines.end());
+
+        Ref<GL::Program> program = GL::Program::read(context,
+                                                     vertexShaderName,
+                                                     fragmentShaderName,
+                                                     geometryShaderName,
+                                                     tessCtrlShaderName,
+                                                     tessEvalShaderName,
+                                                     defines);
+        if (!program)
+        {
+          logError("Failed to load GLSL program for material \'%s\'",
+                   name.c_str());
+          return NULL;
+        }
+
+        pass.setProgram(program);
 
         for (pugi::xml_node s = node.child("sampler");  s;  s = s.next_sibling("sampler"))
         {

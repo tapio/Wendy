@@ -29,10 +29,11 @@
 #include <wendy/Timer.h>
 #include <wendy/Profile.h>
 
+#include <wendy/RenderPool.h>
+#include <wendy/RenderState.h>
 #include <wendy/RenderCamera.h>
 #include <wendy/RenderMaterial.h>
 #include <wendy/RenderLight.h>
-#include <wendy/RenderPool.h>
 #include <wendy/RenderScene.h>
 #include <wendy/RenderSprite.h>
 
@@ -135,9 +136,10 @@ void Renderer::renderOperations(const render::Queue& queue)
   const render::SortKeyList& keys = queue.getSortKeys();
   const render::OperationList& operations = queue.getOperations();
 
-  for (render::SortKeyList::const_iterator k = keys.begin();  k != keys.end();  k++)
+  for (auto k = keys.begin();  k != keys.end();  k++)
   {
-    const render::Operation& op = operations[k->index];
+    const render::SortKey key(*k);
+    const render::Operation& op = operations[key.index];
 
     state->setModelMatrix(op.transform);
     op.state->apply();

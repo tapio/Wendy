@@ -59,6 +59,7 @@ void _glfwPlatformSwapBuffers(void)
     [window->NSGL.context flushBuffer];
 }
 
+
 //========================================================================
 // Set double buffering swap interval
 //========================================================================
@@ -71,6 +72,7 @@ void _glfwPlatformSwapInterval(int interval)
     [window->NSGL.context setValues:&sync forParameter:NSOpenGLCPSwapInterval];
 }
 
+
 //========================================================================
 // Check if an OpenGL extension is available at runtime
 //========================================================================
@@ -80,6 +82,7 @@ int _glfwPlatformExtensionSupported(const char* extension)
     // There are no NSGL extensions
     return GL_FALSE;
 }
+
 
 //========================================================================
 // Get the function pointer to an OpenGL function
@@ -91,13 +94,14 @@ void* _glfwPlatformGetProcAddress(const char* procname)
                                                        procname,
                                                        kCFStringEncodingASCII);
 
-    void* symbol = CFBundleGetFunctionPointerForName(_glfwLibrary.NS.OpenGLFramework,
+    void* symbol = CFBundleGetFunctionPointerForName(_glfwLibrary.NSGL.framework,
                                                      symbolName);
 
     CFRelease(symbolName);
 
     return symbol;
 }
+
 
 //========================================================================
 // Copies the specified OpenGL state categories from src to dst

@@ -29,7 +29,7 @@
 #include <wendy/GLBuffer.h>
 #include <wendy/GLTexture.h>
 #include <wendy/GLProgram.h>
-#include <wendy/GLState.h>
+#include <wendy/RenderState.h>
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -55,15 +55,6 @@ enum Phase
   /*! Shadow map rendering.
    */
   PHASE_SHADOWMAP
-};
-
-///////////////////////////////////////////////////////////////////////
-
-/*! @brief Render pass state object.
- *  @ingroup renderer
- */
-class Pass : public GL::RenderState
-{
 };
 
 ///////////////////////////////////////////////////////////////////////

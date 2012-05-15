@@ -38,7 +38,7 @@ Test::~Test()
   renderer = NULL;
   pool = NULL;
 
-  input::Context::destroySingleton();
+  input::Window::destroySingleton();
   GL::Context::destroySingleton();
 }
 
@@ -68,7 +68,7 @@ bool Test::init()
   if (!renderer)
     return false;
 
-  if (!input::Context::createSingleton(*context))
+  if (!input::Window::createSingleton(*context))
     return false;
 
   Ref<render::Model> model = render::Model::read(*renderer, "cube.model");
@@ -129,7 +129,7 @@ bool Test::init()
   lightNode->setLight(light);
   graph.addRootNode(*lightNode);
 
-  input::Context::getSingleton()->setTarget(&controller);
+  input::Window::getSingleton()->setTarget(&controller);
 
   timer.start();
 

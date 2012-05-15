@@ -35,7 +35,7 @@ Test::~Test()
   renderer = NULL;
   pool = NULL;
 
-  input::Context::destroySingleton();
+  input::Window::destroySingleton();
   GL::Context::destroySingleton();
 }
 
@@ -54,10 +54,10 @@ bool Test::init()
   GL::Context* context = GL::Context::getSingleton();
   context->getResizedSignal().connect(*this, &Test::onContextResized);
 
-  if (!input::Context::createSingleton(*context))
+  if (!input::Window::createSingleton(*context))
     return false;
 
-  input::Context::getSingleton()->setTarget(&controller);
+  input::Window::getSingleton()->setTarget(&controller);
 
   pool = render::GeometryPool::create(*context);
 

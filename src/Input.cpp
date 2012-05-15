@@ -71,7 +71,7 @@ bool Hook::onKeyPressed(Key key, bool pressed)
   return false;
 }
 
-bool Hook::onCharInput(wchar_t character)
+bool Hook::onCharInput(uint32 character)
 {
   return false;
 }
@@ -86,7 +86,7 @@ bool Hook::onCursorMoved(const ivec2& position)
   return false;
 }
 
-bool Hook::onWheelTurned(int offset)
+bool Hook::onScrolled(double x, double y)
 {
   return false;
 }
@@ -105,7 +105,7 @@ void Target::onKeyPressed(Key key, bool pressed)
 {
 }
 
-void Target::onCharInput(wchar_t character)
+void Target::onCharInput(uint32 character)
 {
 }
 
@@ -117,7 +117,7 @@ void Target::onCursorMoved(const ivec2& position)
 {
 }
 
-void Target::onWheelTurned(int offset)
+void Target::onScrolled(double x, double y)
 {
 }
 
@@ -127,7 +127,7 @@ void Target::onFocusChanged(bool activated)
 
 ///////////////////////////////////////////////////////////////////////
 
-Context::~Context()
+Window::~Window()
 {
   glfwSetMousePosCallback(NULL);
   glfwSetMouseButtonCallback(NULL);
@@ -138,71 +138,69 @@ Context::~Context()
   instance = NULL;
 }
 
-void Context::captureCursor()
+void Window::captureCursor()
 {
-  cursorCaptured = true;
-  glfwSetCursorMode(window, GLFW_CURSOR_CAPTURED);
+  glfwSetInputMode(handle, GLFW_CURSOR_MODE, GLFW_CURSOR_CAPTURED);
 }
 
-void Context::releaseCursor()
+void Window::releaseCursor()
 {
-  cursorCaptured = false;
-  glfwSetCursorMode(window, GLFW_CURSOR_NORMAL);
+  glfwSetInputMode(handle, GLFW_CURSOR_MODE, GLFW_CURSOR_NORMAL);
 }
 
-bool Context::isKeyDown(const Key& key) const
+bool Window::isKeyDown(Key key) const
 {
-  return glfwGetKey(window, internalMap[key]) == GLFW_PRESS;
+  return glfwGetKey(handle, internalMap[key]) == GLFW_PRESS;
 }
 
-bool Context::isButtonDown(Button button) const
+bool Window::isButtonDown(Button button) const
 {
-  return glfwGetMouseButton(window, button + GLFW_MOUSE_BUTTON_1) == GLFW_PRESS;
+  return glfwGetMouseButton(handle, button + GLFW_MOUSE_BUTTON_1) == GLFW_PRESS;
 }
 
-bool Context::isCursorCaptured() const
+bool Window::isCursorCaptured() const
 {
-  return cursorCaptured;
+  return glfwGetInputMode(handle, GLFW_CURSOR_MODE) == GLFW_CURSOR_CAPTURED;
 }
 
-unsigned int Context::getWidth() const
+unsigned int Window::getWidth() const
 {
   return context.getDefaultFramebuffer().getWidth();
 }
 
-unsigned int Context::getHeight() const
+unsigned int Window::getHeight() const
 {
   return context.getDefaultFramebuffer().getHeight();
 }
 
-ivec2 Context::getCursorPosition() const
+ivec2 Window::getCursorPosition() const
 {
   ivec2 position;
-  glfwGetMousePos(window, &position.x, &position.y);
+  glfwGetMousePos(handle, &position.x, &position.y);
   return position;
 }
 
-void Context::setCursorPosition(const ivec2& newPosition)
+void Window::setCursorPosition(const ivec2& newPosition)
 {
-  glfwSetMousePos(window, newPosition.x, newPosition.y);
+  glfwSetMousePos(handle, newPosition.x, newPosition.y);
 }
 
-Hook* Context::getHook() const
+Hook* Window::getHook() const
 {
   return currentHook;
 }
 
-void Context::setHook(Hook* newHook)
+void Window::setHook(Hook* newHook)
 {
   currentHook = newHook;
 }
 
-Target* Context::getTarget() const
+Target* Window::getTarget() const
 {
   return currentTarget;
 }
 
-void Context::setTarget(Target* newTarget)
+void Window::setTarget(Target* newTarget)
 {
   if (currentTarget == newTarget)
     return;
@@ -216,27 +214,27 @@ void Context::setTarget(Target* newTarget)
     currentTarget->onFocusChanged(true);
 }
 
-GL::Context& Context::getContext() const
+GL::Context& Window::getContext() const
 {
   return context;
 }
 
-bool Context::createSingleton(GL::Context& context)
+bool Window::createSingleton(GL::Context& context)
 {
-  set(new Context(context));
+  set(new Window(context));
   return true;
 }
 
-Context::Context(GL::Context& initContext):
+Window::Window(GL::Context& initContext):
   context(initContext),
+  handle(NULL),
   currentHook(NULL),
-  currentTarget(NULL),
-  cursorCaptured(false)
+  currentTarget(NULL)
 {
   // TODO: Remove this upon the arrival of GLFW_USER_DATA.
   instance = this;
 
-  context.getResizedSignal().connect(*this, &Context::onContextResized);
+  context.getResizedSignal().connect(*this, &Window::onWindowResized);
 
   std::memset(externalMap, 0, sizeof(externalMap));
   externalMap[GLFW_KEY_SPACE] = KEY_SPACE;
@@ -482,7 +480,7 @@ Context::Context(GL::Context& initContext):
   internalMap[KEY_RIGHT_SUPER] = GLFW_KEY_RIGHT_SUPER;
   internalMap[KEY_MENU] = GLFW_KEY_MENU;
 
-  window = glfwGetCurrentContext();
+  handle = glfwGetCurrentContext();
 
   glfwSetMousePosCallback(mousePosCallback);
   glfwSetMouseButtonCallback(mouseButtonCallback);
@@ -490,22 +488,22 @@ Context::Context(GL::Context& initContext):
   glfwSetCharCallback(characterCallback);
   glfwSetScrollCallback(scrollCallback);
 
-  glfwSetCursorMode(window, GLFW_CURSOR_NORMAL);
+  glfwSetInputMode(handle, GLFW_CURSOR_MODE, GLFW_CURSOR_NORMAL);
 }
 
-Context::Context(const Context& source):
+Window::Window(const Window& source):
   context(source.context)
 {
-  panic("Input contexts may not be copied");
+  panic("Input windows may not be copied");
 }
 
-void Context::onContextResized(unsigned int width, unsigned int height)
+void Window::onWindowResized(unsigned int width, unsigned int height)
 {
   if (currentTarget)
     currentTarget->onWindowResized(width, height);
 }
 
-void Context::keyboardCallback(void* window, int key, int action)
+void Window::keyboardCallback(void* handle, int key, int action)
 {
   const bool pressed = (action == GLFW_PRESS) ? true : false;
 
@@ -519,19 +517,19 @@ void Context::keyboardCallback(void* window, int key, int action)
     instance->currentTarget->onKeyPressed(externalMap[key], pressed);
 }
 
-void Context::characterCallback(void* window, int character)
+void Window::characterCallback(void* handle, int character)
 {
   if (instance->currentHook)
   {
-    if (instance->currentHook->onCharInput((wchar_t) character))
+    if (instance->currentHook->onCharInput((uint32) character))
       return;
   }
 
   if (instance->currentTarget)
-    instance->currentTarget->onCharInput((wchar_t) character);
+    instance->currentTarget->onCharInput((uint32) character);
 }
 
-void Context::mousePosCallback(void* window, int x, int y)
+void Window::mousePosCallback(void* handle, int x, int y)
 {
   if (instance->currentHook)
   {
@@ -543,7 +541,7 @@ void Context::mousePosCallback(void* window, int x, int y)
     instance->currentTarget->onCursorMoved(ivec2(x, y));
 }
 
-void Context::mouseButtonCallback(void* window, int button, int action)
+void Window::mouseButtonCallback(void* handle, int button, int action)
 {
   const bool clicked = (action == GLFW_PRESS) ? true : false;
 
@@ -559,24 +557,24 @@ void Context::mouseButtonCallback(void* window, int button, int action)
     instance->currentTarget->onButtonClicked(Button(button), clicked);
 }
 
-void Context::scrollCallback(void* window, int x, int y)
+void Window::scrollCallback(void* handle, double x, double y)
 {
   if (instance->currentHook)
   {
-    if (instance->currentHook->onWheelTurned(y))
+    if (instance->currentHook->onScrolled(x, y))
       return;
   }
 
   if (instance->currentTarget)
-    instance->currentTarget->onWheelTurned(y);
+    instance->currentTarget->onScrolled(x, y);
 }
 
-Context& Context::operator = (const Context& source)
+Window& Window::operator = (const Window& source)
 {
-  panic("Input contexts may not be assigned");
+  panic("Input windows may not be assigned");
 }
 
-Context* Context::instance = NULL;
+Window* Window::instance = NULL;
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -595,7 +593,7 @@ void MayaCamera::onKeyPressed(Key key, bool pressed)
 
 void MayaCamera::onButtonClicked(Button button, bool clicked)
 {
-  Context* context = Context::getSingleton();
+  Window* window = Window::getSingleton();
 
   if (clicked)
   {
@@ -613,12 +611,12 @@ void MayaCamera::onButtonClicked(Button button, bool clicked)
     }
 
     if (mode != NONE)
-      context->captureCursor();
+      window->captureCursor();
   }
   else
   {
     mode = NONE;
-    context->releaseCursor();
+    window->releaseCursor();
   }
 }
 
@@ -648,9 +646,9 @@ void MayaCamera::onCursorMoved(const ivec2& position)
   lastPosition = position;
 }
 
-void MayaCamera::onWheelTurned(int offset)
+void MayaCamera::onScrolled(double x, double y)
 {
-  distance += (float) offset;
+  distance += float(y);
   updateTransform();
 }
 
@@ -975,7 +973,7 @@ void TextController::onKeyPressed(Key key, bool pressed)
   }
 }
 
-void TextController::onCharInput(wchar_t character)
+void TextController::onCharInput(uint32 character)
 {
   if (isCtrlKeyDown())
     return;
@@ -1013,10 +1011,10 @@ void TextController::setCaretPosition(size_t newPosition)
 
 bool TextController::isCtrlKeyDown() const
 {
-  Context* context = Context::getSingleton();
+  Window* window = Window::getSingleton();
 
-  return context->isKeyDown(KEY_LEFT_CONTROL) ||
-         context->isKeyDown(KEY_RIGHT_CONTROL);
+  return window->isKeyDown(KEY_LEFT_CONTROL) ||
+         window->isKeyDown(KEY_RIGHT_CONTROL);
 }
 
 ///////////////////////////////////////////////////////////////////////

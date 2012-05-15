@@ -57,7 +57,7 @@ List::List(Layer& layer):
   getAreaChangedSignal().connect(*this, &List::onAreaChanged);
   getButtonClickedSignal().connect(*this, &List::onButtonClicked);
   getKeyPressedSignal().connect(*this, &List::onKeyPressed);
-  getWheelTurnedSignal().connect(*this, &List::onWheelTurned);
+  getScrolledSignal().connect(*this, &List::onScrolled);
 
   scroller = new Scroller(layer, VERTICAL);
   scroller->setValueRange(0.f, 1.f);
@@ -91,7 +91,7 @@ void List::createItem(const char* value, ItemID ID)
 
 Item* List::findItem(const char* value)
 {
-  for (ItemList::const_iterator i = items.begin();  i != items.end();  i++)
+  for (auto i = items.begin();  i != items.end();  i++)
   {
     if ((*i)->asString() == value)
       return *i;
@@ -102,7 +102,7 @@ Item* List::findItem(const char* value)
 
 const Item* List::findItem(const char* value) const
 {
-  for (ItemList::const_iterator i = items.begin();  i != items.end();  i++)
+  for (auto i = items.begin();  i != items.end();  i++)
   {
     if ((*i)->asString() == value)
       return *i;
@@ -113,7 +113,7 @@ const Item* List::findItem(const char* value) const
 
 void List::destroyItem(Item& item)
 {
-  ItemList::iterator i = std::find(items.begin(), items.end(), &item);
+  auto i = std::find(items.begin(), items.end(), &item);
   assert(i != items.end());
 
   if (selection == i - items.begin())
@@ -206,7 +206,7 @@ Item* List::getSelectedItem()
 
 void List::setSelectedItem(Item& newItem)
 {
-  ItemList::const_iterator i = std::find(items.begin(), items.end(), &newItem);
+  auto i = std::find(items.begin(), items.end(), &newItem);
   assert(i != items.end());
   setSelection(i - items.begin(), false);
 }
@@ -398,18 +398,18 @@ void List::onKeyPressed(Widget& widget, input::Key key, bool pressed)
   }
 }
 
-void List::onWheelTurned(Widget& widget, int wheelOffset)
+void List::onScrolled(Widget& widget, double x, double y)
 {
   if (items.empty())
     return;
 
-  if (wheelOffset + (int) offset < 0)
+  if (int(y) + (int) offset < 0)
     return;
 
   if (editing)
     return;
 
-  setOffset(offset + wheelOffset);
+  setOffset(offset + int(y));
 }
 
 void List::onValueChanged(Scroller& scroller)
@@ -467,12 +467,12 @@ void List::updateScroller()
 
   float totalItemHeight = 0.f;
 
-  for (ItemList::const_iterator i = items.begin();  i != items.end();  i++)
+  for (auto i = items.begin();  i != items.end();  i++)
     totalItemHeight += (*i)->getHeight();
 
   float visibleItemHeight = 0.f;
 
-  for (ItemList::const_reverse_iterator i = items.rbegin();  i != items.rend();  i++)
+  for (auto i = items.rbegin();  i != items.rend();  i++)
   {
     visibleItemHeight += (*i)->getHeight();
     if (visibleItemHeight > getHeight())
